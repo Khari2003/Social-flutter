@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Location</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <style>
+    #map {
+      width: 100%;
+      height: 400px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Get Your Location</h1>
+  <button id="getLocation">Get Coordinates</button>
+  <p id="output"></p>
+  <div id="map"></div>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1Ijoibmd1eWVua2hhaTIwMDMiLCJhIjoiY20zZWtnMHd0MGQ4aTJpcHhkNTNyb3h5YiJ9.OLZURwzqnNLb1bw-lS9Ixw';
+
+    // Khởi tạo bản đồ
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [105.854444, 21.028511], // Tọa độ mặc định (Hà Nội)
+      zoom: 10
+    });
+
+    // Lấy tọa độ và cập nhật bản đồ
+    document.getElementById('getLocation').addEventListener('click', () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            document.getElementById('output').innerText = 
+              `Latitude: ${latitude}, Longitude: ${longitude}`;
+
+            // Cập nhật vị trí trung tâm bản đồ
+            map.setCenter([longitude, latitude]);
+
+            // Thêm điểm đánh dấu
+            new mapboxgl.Marker()
+              .setLngLat([longitude, latitude])
+              .addTo(map);
+          },
+          (error) => {
+            document.getElementById('output').innerText = 'Error getting location.';
+            console.error(error);
+          }
+        );
+      } else {
+        document.getElementById('output').innerText = 'Geolocation is not supported by this browser.';
+      }
+    });
+  </script>
+</body>
+</html>
