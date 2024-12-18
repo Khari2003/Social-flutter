@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDb = require('./config/connectDB');
 const StoreRouter = require('./router/store.router')
+const WayRouter = require('./router/way.router')
 const cookieParser = require('cookie-parser');
 
 require('dotenv').config();
@@ -29,6 +30,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', StoreRouter);
+app.use('/api/v1', WayRouter)
 
 // Xử lý các yêu cầu preflight
 app.options('*', cors());
