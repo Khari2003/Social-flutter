@@ -1,31 +1,41 @@
 const haversine = require("haversine-distance");
 
-function shortWay(elements, startCoord, endCoord) {
+function findWaysAndShortWay(elements, startCoord, endCoord) {
     // Hàm tính khoảng cách giữa hai tọa độ
     function calculateDistance(coord1, coord2) {
-        if (!coord1 || !coord2 || !coord1.lat || !coord1.lon || !coord2.lat || !coord2.lon) {
+        if (!coord1 || !coord2 || !coord1.lat || !coord1.lng || !coord2.lat || !coord2.lng) {
             throw new Error("Invalid coordinates provided to calculateDistance");
         }
         return haversine(
-            { latitude: coord1.lat, longitude: coord1.lon },
-            { latitude: coord2.lat, longitude: coord2.lon }
+            { latitude: coord1.lat, longitude: coord1.lng },
+            { latitude: coord2.lat, longitude: coord2.lng }
         );
     }
 
-    // Hàm xây dựng đồ thị từ dữ liệu JSON
-    function buildGraph(elements) {
+    // Hàm xây dựng đồ thị và danh sách các way từ dữ liệu JSON
+    function buildGraphAndWays(elements) {
         const nodes = {};
         const graph = {};
+        const ways = []; // Lưu trữ tất cả các way
 
+        // Xây dựng danh sách nodes từ các elements
         elements.forEach((element) => {
             if (element.type === "node") {
-                nodes[element.id] = { lat: element.lat, lon: element.lon };
+                nodes[element.id] = { lat: element.lat, lng: element.lon };
             }
         });
 
+        // Xây dựng các cạnh trong đồ thị từ các way
         elements.forEach((element) => {
             if (element.type === "way") {
                 const wayNodes = element.nodes;
+                const wayData = {
+                    id: element.id,
+                    nodes: wayNodes,
+                    tags: element.tags,
+                };
+                ways.push(wayData);
+
                 for (let i = 0; i < wayNodes.length - 1; i++) {
                     const node1 = wayNodes[i];
                     const node2 = wayNodes[i + 1];
@@ -48,23 +58,7 @@ function shortWay(elements, startCoord, endCoord) {
             }
         });
 
-        return { graph, nodes };
-    }
-
-    // Hàm tìm node gần nhất với toạ độ
-    function findNearestNode(coord, nodes) {
-        let nearestNode = null;
-        let minDistance = Infinity;
-
-        for (const [nodeId, nodeCoord] of Object.entries(nodes)) {
-            const distance = calculateDistance(coord, nodeCoord);
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestNode = nodeId;
-            }
-        }
-
-        return nearestNode;
+        return { graph, nodes, ways };
     }
 
     // Thuật toán Dijkstra
@@ -119,41 +113,58 @@ function shortWay(elements, startCoord, endCoord) {
         return path;
     }
 
-    // Xây dựng đồ thị
-    const { graph, nodes } = buildGraph(elements);
+    // Xây dựng đồ thị và danh sách way
+    const { graph, nodes, ways } = buildGraphAndWays(elements);
 
     // Tìm node gần nhất với startCoord và endCoord
-    const startPoint = findNearestNode(startCoord, nodes);
-    const endPoint = findNearestNode(endCoord, nodes);
+    const findNearestNode = (coord) => {
+        let nearestNode = null;
+        let minDistance = Infinity;
 
-    if (!startPoint || !endPoint) {
+        for (const nodeId in nodes) {
+            const distance = calculateDistance(coord, nodes[nodeId]);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestNode = nodeId;
+            }
+        }
+        return nearestNode;
+    };
+
+    const startNode = findNearestNode(startCoord);
+    const endNode = findNearestNode(endCoord);
+
+    if (!startNode || !endNode) {
         return {
-            path: null,
-            distance: Infinity,
-            message: "Không tìm thấy node gần nhất cho toạ độ được cung cấp."
+            ways,
+            shortWay: {
+                path: null,
+                distance: Infinity,
+                message: "Không tìm được node gần nhất từ các tọa độ đã cho."
+            },
         };
     }
 
     // Gọi thuật toán Dijkstra
-    const { distances, previous } = dijkstra(graph, startPoint);
+    const { distances, previous } = dijkstra(graph, startNode);
 
     // Truy ngược đường đi từ điểm bắt đầu tới điểm kết thúc
-    const path = getPath(previous, startPoint, endPoint);
+    const path = getPath(previous, startNode, endNode);
 
     // Kết quả
-    if (distances[endPoint] === Infinity) {
-        return {
+    const shortWay = distances[endNode] === Infinity
+        ? {
             path: null,
             distance: Infinity,
             message: `Không có đường đi từ toạ độ ${JSON.stringify(startCoord)} đến toạ độ ${JSON.stringify(endCoord)}.`
-        };
-    } else {
-        return {
+        }
+        : {
             path,
-            distance: distances[endPoint],
+            distance: distances[endNode],
             message: `Tìm được đường đi từ toạ độ ${JSON.stringify(startCoord)} đến toạ độ ${JSON.stringify(endCoord)}.`
         };
-    }
+
+    return { ways, shortWay };
 }
 
-module.exports = shortWay
+module.exports = findWaysAndShortWay;

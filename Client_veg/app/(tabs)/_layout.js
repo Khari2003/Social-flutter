@@ -1,132 +1,144 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native'; // Import Slider
+import MapView, { Marker, Polyline, Circle } from 'react-native-maps'; // Import Circle
+import useLocation from '../components/User/userLocation';
+import Slider from '@react-native-community/slider'
 import axios from 'axios';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { Polyline, Marker } from 'react-native-maps';
-import * as Location from 'expo-location'
+
+const ip = '172.19.201.25';
 
 const App = () => {
-  const [nodes, setNodes] = useState([]); // Danh sách node
-  const [path, setPath] = useState([]);   // Danh sách đường đi (path)
-  const [startNode, setStartNode] = useState(null); // Node bắt đầu
-  const [endNode, setEndNode] = useState(null);     // Node kết thúc
-  const [userLocation, setUserLocation] = useState(null);
+  const { location, errorMsg } = useLocation();
+  const [radius, setRadius] = useState(5000); // Bán kính ban đầu 5km
+  const [nodes, setNodes] = useState([]);
+  const [path, setPath] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [filteredStores, setFilteredStores] = useState([]);
+  const [mapRegion, setMapRegion] = useState(null);
 
   useEffect(() => {
-    fetchNodeWayData();
+    fetchStoresData();
   }, []);
 
   useEffect(() => {
-    getUserLocation();
-  })
-
-  const getUserLocation = async () => {
-    try {
-      // Yêu cầu quyền truy cập vị trí
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Quyền truy cập vị trí bị từ chối.');
-        return;
-      }
-
-      // Lấy vị trí hiện tại
-      let location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+    if (location) {
+      const latitudeDelta = 0.01;
+      const longitudeDelta = 0.01;
+      setMapRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta,
+        longitudeDelta,
       });
-      const { latitude, longitude } = location.coords;
-      setUserLocation({ latitude, longitude });
-    } catch (error) {
-      console.error('Error getting location:', error.message);
     }
-  };
+  }, [location]);
 
-  // console.log(userLocation)
+  useEffect(() => {
+    if (stores.length > 0 && location) {
+      filterStoresWithinRadius();
+    }
+  }, [stores, location, radius]);
 
-  const fetchNodeWayData = async () => {
+  const fetchStoresData = async () => {
     try {
-      // Thay đổi URL API nếu cần thiết
-      const response = await axios.get('http://192.168.1.4:4000/api/v1/way', {
-        params: {
-          startCoord: { lat: 20.964924, lon: 105.827779 },
-          endCoord: { lat: 20.973178, lon: 105.828666 },
-        },
-      });
-
-      if (response && response.data) {
-        const { result, elements } = response.data;
-
-        // Lưu danh sách node từ elements
-        const nodeData = elements.filter((el) => el.type === 'node');
-        setNodes(nodeData);
-
-        // Lưu danh sách path từ result.path
-        setPath(result.path);
-
-        // Xác định node bắt đầu và kết thúc
-        const start = nodeData.find((n) => n.id === Number(result.path[0]));
-        const end = nodeData.find((n) => n.id === Number(result.path[result.path.length - 1]));
-
-        setStartNode(start);
-        setEndNode(end);
-      } else {
-        console.warn('Invalid data structure received from API');
-      }
+      const response = await axios.get(`http://${ip}:4000/api/getall`);
+      setStores(response.data);
     } catch (error) {
-      console.error('Failed to fetch data:', error.message || error);
       console.log(error);
     }
   };
 
-  // Hàm lấy tọa độ node từ ID
-  const getNodeCoordinates = (nodeId) => {
-    const node = nodes.find((n) => n.id === Number(nodeId));
-    return node ? { latitude: node.lat, longitude: node.lon } : null;
+  const filterStoresWithinRadius = () => {
+    const userLocation = {
+      lat: location.coords.latitude,
+      lng: location.coords.longitude,
+    };
+
+    const filtered = stores.filter((store) => {
+      const distance = getDistance(userLocation, {
+        lat: store.coordinates.lat,
+        lng: store.coordinates.lng,
+      });
+      return distance <= radius;
+    });
+
+    setFilteredStores(filtered);
   };
 
-  // Tạo mảng tọa độ cho đường Polyline
-  const getPathCoordinates = () => {
-    return path
-      .map((nodeId) => getNodeCoordinates(nodeId))
-      .filter((coord) => coord !== null); // Bỏ qua các node không tìm thấy
+  const getDistance = (coord1, coord2) => {
+    const R = 6371e3;
+    const toRad = (x) => (x * Math.PI) / 180;
+
+    const dLat = toRad(coord2.lat - coord1.lat);
+    const dLng = toRad(coord2.lng - coord1.lng);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(coord1.lat)) *
+        Math.cos(toRad(coord2.lat)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
   };
 
   return (
     <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: 20.964924,
-          longitude: 105.827779,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}
-      >
-        {/* Marker cho node bắt đầu */}
-        {startNode && (
-          <Marker
-            coordinate={{ latitude: startNode.lat, longitude: startNode.lon }}
-            title="Start Node"
-            pinColor="green"
-          />
-        )}
-
-        {/* Marker cho node kết thúc */}
-        {endNode && (
-          <Marker
-            coordinate={{ latitude: endNode.lat, longitude: endNode.lon }}
-            title="End Node"
-            pinColor="red"
-          />
-        )}
-
-        {/* Hiển thị đường đi từ path */}
-        {path.length > 0 && (
-          <Polyline
-            coordinates={getPathCoordinates()}
-            strokeColor="#FF0000" // Màu của đường
-            strokeWidth={3} // Độ rộng của đường
-          />
-        )}
-      </MapView>
+      {errorMsg ? (
+        <Text style={styles.error}>{errorMsg}</Text>
+      ) : location ? (
+        <>
+          <MapView style={styles.map} region={mapRegion}>
+            {location && (
+              <>
+                <Marker
+                  coordinate={{
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                  }}
+                  title="Vị trí của bạn"
+                  pinColor="green"
+                />
+                <Circle
+                  center={{
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                  }}
+                  radius={radius} // Bán kính
+                  strokeColor="rgba(0, 0, 255, 0.5)"
+                  fillColor="rgba(0, 0, 255, 0.2)"
+                />
+              </>
+            )}
+            {filteredStores.map((store, index) => (
+              <Marker
+                key={index}
+                coordinate={{
+                  latitude: store.coordinates.lat,
+                  longitude: store.coordinates.lng,
+                }}
+                title={store.name}
+              />
+            ))}
+          </MapView>
+          <View style={styles.sliderContainer}>
+            <Text>Bán kính: {radius / 1000} km</Text>
+            <Slider
+              minimumValue={1000} // Bán kính nhỏ nhất: 1km
+              maximumValue={10000} // Bán kính lớn nhất: 10km
+              step={500} // Tăng/giảm mỗi 500m
+              value={radius}
+              onValueChange={(value) => setRadius(value)}
+            />
+          </View>
+        </>
+      ) : (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loading}>Đang theo dõi tọa độ...</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -134,9 +146,35 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    margin: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loading: {
+    fontSize: 16,
+    color: 'gray',
   },
   map: {
     flex: 1,
+  },
+  sliderContainer: {
+    position: 'absolute',
+    bottom: 20,
+    width: '90%',
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 10,
+    elevation: 5,
   },
 });
 
