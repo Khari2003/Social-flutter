@@ -124,11 +124,10 @@ const App = () => {
             ))}
           </MapView>
           <View style={styles.sliderContainer}>
-            <Text>Bán kính: {radius / 1000} km</Text>
+            <Text>Bán kính: {radius} m</Text>
             <Slider
-              minimumValue={1000} // Bán kính nhỏ nhất: 1km
-              maximumValue={10000} // Bán kính lớn nhất: 10km
-              step={500} // Tăng/giảm mỗi 500m
+              minimumValue={0} // Bán kính nhỏ nhất: 1km
+              maximumValue={5000} // Bán kính lớn nhất: 10km
               value={radius}
               onValueChange={(value) => setRadius(value)}
             />
