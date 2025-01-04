@@ -5,19 +5,21 @@ import { AntDesign } from '@expo/vector-icons';
 import useLocation from '../components/User/userLocation';
 import axios from 'axios';
 
-const ip = '172.19.201.25';
+const ip = '172.19.201.25'; // Địa chỉ IP của API backend
 
 const App = () => {
-  const { location, errorMsg } = useLocation();
-  const [nodes, setNodes] = useState([]);
-  const [path, setPath] = useState([]);
-  const [stores, setStores] = useState([]);
-  const [filteredStores, setFilteredStores] = useState([]); 
-  const [radius, setRadius] = useState(5000);
-  const [mapRegion, setMapRegion] = useState(null);
-  const [selectedStore, setSelectedStore] = useState(null);
-  const [fetchedPath, setFetchedPath] = useState(false);
+  // Sử dụng hook để lưu trữ trạng thái
+  const { location, errorMsg } = useLocation(); // Lấy vị trí hiện tại của người dùng
+  const [nodes, setNodes] = useState([]); // Danh sách các node trong tuyến đường
+  const [path, setPath] = useState([]); // Đường dẫn ngắn nhất
+  const [stores, setStores] = useState([]); // Danh sách các cửa hàng
+  const [filteredStores, setFilteredStores] = useState([]); // Cửa hàng trong bán kính
+  const [radius, setRadius] = useState(5000); // Bán kính tìm kiếm (mặc định 5km)
+  const [mapRegion, setMapRegion] = useState(null); // Khu vực hiển thị trên bản đồ
+  const [selectedStore, setSelectedStore] = useState(null); // Cửa hàng được chọn
+  const [fetchedPath, setFetchedPath] = useState(false); // Kiểm tra xem đã lấy đường dẫn chưa
 
+  // Thiết lập khu vực bản đồ khi vị trí của người dùng thay đổi
   useEffect(() => {
     if (location && !selectedStore) {
       const latitudeDelta = 0.01;
@@ -31,22 +33,26 @@ const App = () => {
     }
   }, [location]);
 
+  // Lấy danh sách cửa hàng từ API khi ứng dụng được tải
   useEffect(() => {
     fetchStoresData();
   }, []);
 
+  // Lấy dữ liệu tuyến đường nếu chưa có
   useEffect(() => {
     if (location && !fetchedPath) {
       fetchNodeWayData();
     }
   }, [location, fetchedPath]);
 
+  // Lọc các cửa hàng trong bán kính khi vị trí hoặc danh sách cửa hàng thay đổi
   useEffect(() => {
     if (stores.length > 0 && location) {
       filterStoresWithinRadius();
     }
   }, [stores, location]);
 
+  // Hàm lấy tuyến đường giữa vị trí người dùng và cửa hàng
   const fetchNodeWayData = async (storeCoordinates) => {
     try {
       const response = await axios.get(`http://${ip}:4000/api/v1/way`, {
@@ -65,6 +71,7 @@ const App = () => {
           setNodes(nodeData);
           setPath(result.shortWay.path);
 
+          // Tự động điều chỉnh khu vực bản đồ hiển thị dựa trên đường dẫn
           const start = nodeData.find((n) => n.id === Number(result.shortWay.path[0]));
           const end = nodeData.find((n) => n.id === Number(result.shortWay.path[result.shortWay.path.length - 1]));
 
@@ -87,6 +94,7 @@ const App = () => {
     }
   };
 
+  // Hàm lấy danh sách cửa hàng từ API
   const fetchStoresData = async () => {
     try {
       const response = await axios.get(`http://${ip}:4000/api/getall`);
@@ -96,6 +104,7 @@ const App = () => {
     }
   };
 
+  // Lọc các cửa hàng trong bán kính đã định
   const filterStoresWithinRadius = () => {
     if (!location) return;
 
@@ -115,8 +124,9 @@ const App = () => {
     setFilteredStores(filtered);
   };
 
+  // Hàm tính khoảng cách giữa 2 điểm tọa độ (Haversine Formula)
   const getDistance = (coord1, coord2) => {
-    const R = 6371e3; // Earth radius in meters
+    const R = 6371e3; // Bán kính Trái Đất (m)
     const toRad = (x) => (x * Math.PI) / 180;
 
     const dLat = toRad(coord2.lat - coord1.lat);
@@ -134,17 +144,20 @@ const App = () => {
     return R * c; 
   };
 
+  // Lấy tọa độ của node dựa vào ID
   const getNodeCoordinates = (nodeId) => {
     const node = nodes.find((n) => n.id === Number(nodeId));
     return node ? { latitude: node.lat, longitude: node.lon } : null;
   };
 
+  // Chuyển đổi đường dẫn thành danh sách tọa độ
   const getPathCoordinates = () => {
     return path
       .map((nodeId) => getNodeCoordinates(nodeId))
       .filter((coord) => coord !== null);
   };
 
+  // Vòng tròn hiển thị phạm vi bán kính
   const memoizedCircle = useMemo(() => {
     if (!location) return null;
     return (
@@ -160,6 +173,7 @@ const App = () => {
     );
   }, [radius, location]);
 
+  // Điều chỉnh bán kính tìm kiếm
   const adjustRadius = (adjustment) => {
     setRadius((prevRadius) => {
       const newRadius = prevRadius + adjustment;
