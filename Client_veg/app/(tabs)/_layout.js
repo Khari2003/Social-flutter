@@ -5,7 +5,7 @@ import { AntDesign } from '@expo/vector-icons';
 import useLocation from '../components/User/userLocation';
 import axios from 'axios';
 
-const ip = '172.19.201.25'; // Địa chỉ IP của API backend
+const ip = '192.168.209.1'; // Địa chỉ IP của API backend
 
 const App = () => {
   // Sử dụng hook để lưu trữ trạng thái
