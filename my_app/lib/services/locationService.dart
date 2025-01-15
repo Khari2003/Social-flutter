@@ -4,41 +4,48 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 class LocationService {
+  // Fetch the current location of the user
   static Future<LatLng?> fetchCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Kiểm tra dịch vụ định vị
+    // Check if location services are enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      print('Location services are disabled.');
-      return null; // Trả về null nếu dịch vụ bị tắt
+      return null;
     }
 
-    // Kiểm tra và yêu cầu quyền
+    // Check location permissions
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        print('Location permissions are denied.');
-        return null; // Trả về null nếu quyền bị từ chối
+        return null;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      print('Location permissions are permanently denied.');
-      return null; // Trả về null nếu quyền bị từ chối vĩnh viễn
+      return null;
     }
 
-    // Lấy vị trí hiện tại
+    // Get the current position
     try {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       return LatLng(position.latitude, position.longitude);
     } catch (e) {
-      print('Error getting location: $e');
-      return null; // Trả về null nếu có lỗi
+      return null;
     }
+  }
+
+  // Stream to track location changes
+  Stream<Position> get onLocationChanged {
+    return Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Update when user moves 10 meters
+      ),
+    );
   }
 }

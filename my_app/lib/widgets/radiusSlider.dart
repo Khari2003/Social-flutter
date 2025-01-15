@@ -15,7 +15,7 @@ class RadiusSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
       child: Column(
         children: [
           Text('Radius: ${radius.toStringAsFixed(0)} meters'),

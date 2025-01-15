@@ -1,6 +1,4 @@
 const StoreModel = require('../models/store.model');
-const overpassData = require('./OverpassData')
-const calculateDistance = require('./calDistance')
 
 const getAllStores = async (req, res) => {
     try {
@@ -88,42 +86,4 @@ const postCreateStore = async (req, res) => {
     }
 }
 
-const getAllStoresInArena = async (req, res) => {
-    const userCoord = req.body.userCoord || req.query.userCoord; // { lat, lng }
-    const radius = req.body.radius || req.query.radius || 500; // Bán kính mặc định là 500m
-
-    try {
-        // Kiểm tra dữ liệu vị trí của người dùng
-        if (!userCoord || !userCoord.lat || !userCoord.lng) {
-            return res.status(400).json({ error: 'Vui lòng cung cấp tọa độ lat và lng.' });
-        }
-
-        const { lat, lng } = userCoord;
-
-        // Lấy toàn bộ danh sách cửa hàng từ cơ sở dữ liệu
-        const allStores = await StoreModel.find({}, 'name coordinates address category');
-
-        // Lọc các cửa hàng trong phạm vi bán kính
-        const filteredStores = allStores.filter(store => {
-            const distance = calculateDistance(
-                lat, lng,
-                store.coordinates.lat, store.coordinates.lng
-            );
-            return distance <= radius;
-        });
-
-        // Gọi Overpass API để lấy thêm dữ liệu (đường xá, POI, v.v.)
-        const elements = await overpassData(lat, lng, radius);
-        // console.log(elements)
-        // Trả kết quả
-        res.status(200).json({
-            stores: filteredStores,
-            arenaData: elements
-        });
-    } catch (error) {
-        console.error('Lỗi khi lấy dữ liệu:', error.message);
-        res.status(500).json({ error: 'Đã xảy ra lỗi máy chủ.' });
-    }
-};
-
-module.exports = {getAllStores, postCreateStore, getAllStoresInArena};
+module.exports = {getAllStores, postCreateStore};

@@ -15,19 +15,32 @@ class StoreListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return SizedBox(
+      height: 200,
       child: ListView.builder(
         itemCount: stores.length,
         itemBuilder: (context, index) {
           final store = stores[index];
-          final coordinates = store['coordinates'];
-          return ListTile(
-            title: Text(store['name']),
-            subtitle: Text('Lat: ${coordinates['lat']}, Lng: ${coordinates['lng']}'),
-            trailing: Icon(Icons.directions),
-            onTap: () {
-              onSelectStore(LatLng(coordinates['lat'], coordinates['lng']));
-            },
+          final coordinates = LatLng(
+            store['coordinates']['lat'],
+            store['coordinates']['lng'],
+          );
+
+          return Column(
+            children: [
+              ListTile(
+                title: Text(store['name']),
+                subtitle: Text(store['address']),
+                trailing: Hero(
+                  tag: store['_id'], // Sử dụng _id của cửa hàng làm tag duy nhất
+                  child: Icon(Icons.arrow_forward_ios),
+                ),
+                onTap: () {
+                  onSelectStore(coordinates); // Gọi hàm để báo về MapScreen
+                },
+              ),
+              if (index < stores.length - 1) Divider(), // Thêm Divider nếu không phải item cuối
+            ],
           );
         },
       ),
