@@ -20,54 +20,45 @@ const userSchema = new mongoose.Schema({
     },
 
     // Thông tin cá nhân
-    fullName: {
+    profile: {
         type: String,
-        default: ''
-    },
-    phoneNumber: {
-        type: String,
-        default: ''
-    },
-    avatarURL: {
-        type: String,
-        default: '' // URL ảnh đại diện
     },
 
     // Vai trò
-    role: {
-        type: String,
-        enum: ['user', 'admin'], // Phân quyền: user hoặc admin
-        default: 'user'
-    },
+    // role: {
+    //     type: String,
+    //     enum: ['user', 'admin'], // Phân quyền: user hoặc admin
+    //     default: 'user'
+    // },
 
-    // Hoạt động
-    favorites: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Store' // Danh sách nhà hàng yêu thích
-        }
-    ],
-    reviews: [
-        {
-            store: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'Store' // Nhà hàng được đánh giá
-            },
-            rating: {
-                type: Number,
-                min: 0,
-                max: 5
-            },
-            comment: {
-                type: String,
-                default: ''
-            },
-            createdAt: {
-                type: Date,
-                default: Date.now
-            }
-        }
-    ],
+    // // Hoạt động
+    // favorites: [
+    //     {
+    //         type: mongoose.Schema.Types.ObjectId,
+    //         ref: 'Store' // Danh sách nhà hàng yêu thích
+    //     }
+    // ],
+    // reviews: [
+    //     {
+    //         store: {
+    //             type: mongoose.Schema.Types.ObjectId,
+    //             ref: 'Store' // Nhà hàng được đánh giá
+    //         },
+    //         rating: {
+    //             type: Number,
+    //             min: 0,
+    //             max: 5
+    //         },
+    //         comment: {
+    //             type: String,
+    //             default: ''
+    //         },
+    //         createdAt: {
+    //             type: Date,
+    //             default: Date.now
+    //         }
+    //     }
+    // ],
 
     // Thời gian
     createdAt: {
@@ -88,4 +79,5 @@ userSchema.pre('save', function (next) {
     next();
 });
 
-module.exports = mongoose.model('User', userSchema)
+const UserModel = mongoose.model('User', userSchema)
+module.exports = UserModel

@@ -9,9 +9,8 @@ import '../services/storeService.dart';
 import '../widgets/radiusSlider.dart';
 import '../widgets/storeListWidget.dart';
 import '../widgets/StoreDetailWidget.dart';
-// ignore: depend_on_referenced_packages
-import 'package:flutter_svg/flutter_svg.dart';
-
+import '../widgets/mapWidget.dart';
+import '../utils/markerBuilder.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -173,49 +172,31 @@ class _MapScreenState extends State<MapScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Stack(
                 children: [
-                  FlutterMap(
+                  MapWidget(
                     mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: currentLocation!,
-                      initialZoom: 14.0,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      ),
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: routeCoordinates,
-                            strokeWidth: 4.0,
-                            color: Colors.blue,
-                          ),
-                        ],
-                      ),
-                      if (!isNavigating)
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: radius, end: radius),
-                          duration: const Duration(milliseconds: 300),
-                          builder: (context, value, child) {
-                            return CircleLayer(
-                              circles: [
-                                CircleMarker(
-                                  point: currentLocation!,
-                                  // ignore: deprecated_member_use
-                                  color: Colors.blue.withOpacity(0.3),
-                                  borderStrokeWidth: 1.0,
-                                  borderColor: Colors.blue,
-                                  useRadiusInMeter: true,
-                                  radius: value,
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      MarkerLayer(
-                        markers: _buildMarkers(),
+                    initialLocation: currentLocation!,
+                    polylines: [
+                      Polyline(
+                        points: routeCoordinates,
+                        strokeWidth: 4.0,
+                        // ignore: deprecated_member_use
+                        color: Colors.blue.withOpacity(0.8),
                       ),
                     ],
+                    showRadius: !isNavigating,
+                    radius: radius,
+                    markers: buildMarkers(
+                      currentLocation: currentLocation,
+                      isNavigating: isNavigating,
+                      userHeading: userHeading,
+                      filteredStores: filteredStores,
+                      navigatingStore: navigatingStore,
+                      onSelectStore: (store) {
+                        setState(() {
+                          selectedStore = store;
+                        });
+                      },
+                    ),
                   ),
                   Positioned(
                     bottom: 120.0,
@@ -387,66 +368,5 @@ class _MapScreenState extends State<MapScreen> {
               ),
       ),
     );
-  }
-
-  List<Marker> _buildMarkers() {
-    List<Marker> markers = [];
-
-    // Marker cho vị trí của người dùng
-    if (currentLocation != null) {
-      markers.add(Marker(
-        width: 80.0,
-        height: 80.0,
-        point: currentLocation!,
-        child: isNavigating && userHeading != null
-            ? Transform.rotate(
-                angle: (userHeading! + 90) * (3.14159265359 / 180),
-                child: SvgPicture.asset(
-                  'assets/location-arrow-svgrepo-com.svg', // Custom SVG cho điều hướng
-                  width: 40.0,
-                  height: 40.0,
-                ),
-              )
-            : const Icon(
-                Icons.my_location,
-                color: Colors.green,
-                size: 40.0,
-              ),
-      ));
-    }
-
-    // Marker cho cửa hàng được chọn khi đang điều hướng
-    if (isNavigating) {
-      markers.add(Marker(
-        width: 80.0,
-        height: 80.0,
-        point: LatLng(
-          navigatingStore!['coordinates']['lat'],
-          navigatingStore!['coordinates']['lng'],
-        ),
-        child: const Icon(Icons.location_on, color: Colors.red, size: 40.0),
-      ));
-    }
-
-    // Marker cho tất cả các cửa hàng (chỉ khi không điều hướng)
-    if (!isNavigating) {
-      markers.addAll(filteredStores.map((store) {
-        final coordinates = store['coordinates'];
-        return Marker(
-          width: 80.0,
-          height: 80.0,
-          point: LatLng(coordinates['lat'], coordinates['lng']),
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                selectedStore = store;
-              });
-            },
-            child: const Icon(Icons.location_on, color: Colors.red, size: 40.0),
-          ),
-        );
-      }).toList());
-    } 
-    return markers;
   }
 }
