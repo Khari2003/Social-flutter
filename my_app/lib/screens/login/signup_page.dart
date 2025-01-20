@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
 
 class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
+
   @override
+  // ignore: library_private_types_in_public_api
   _SignupPageState createState() => _SignupPageState();
 }
 
@@ -43,8 +45,10 @@ class _SignupPageState extends State<SignupPage> {
       // }
       // For now, just simulate success
       await Future.delayed(Duration(seconds: 2)); // Simulate a network call
+      // ignore: use_build_context_synchronously
       Navigator.pop(context); // Go back after signup
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Có lỗi xảy ra, vui lòng thử lại.')),
       );

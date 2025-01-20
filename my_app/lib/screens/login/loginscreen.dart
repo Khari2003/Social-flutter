@@ -1,9 +1,13 @@
+// ignore_for_file: library_private_types_in_public_api
+
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../home_page.dart';
 import 'signup_page.dart';
 
 class LoginDemo extends StatefulWidget {
+  const LoginDemo({super.key});
+
   @override
   _LoginDemoState createState() => _LoginDemoState();
 }
@@ -32,17 +36,20 @@ class _LoginDemoState extends State<LoginDemo> {
       final success = await ApiService.login(email, password);
       if (success) {
         Navigator.pushReplacement(
+          // ignore: use_build_context_synchronously
           context,
           MaterialPageRoute(
               builder: (_) => HomePage()), // Navigate to MainScreen
         );
       } else {
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Thông tin đăng nhập không hợp lệ.')),
         );
       }
     } catch (e) {
       Navigator.pushReplacement(
+          // ignore: use_build_context_synchronously
           context,
           MaterialPageRoute(
               builder: (_) => HomePage()), // Navigate to MainScreen
@@ -78,7 +85,7 @@ class _LoginDemoState extends State<LoginDemo> {
               children: <Widget>[
                 SizedBox(height: screenSize.height * 0.1),
                 Center(
-                  child: Container(
+                  child: SizedBox(
                     width: isMobile ? 150 : 200,
                     height: isMobile ? 100 : 150,
                     child: Image.asset('../assets/logo.jpg'),
@@ -107,7 +114,7 @@ class _LoginDemoState extends State<LoginDemo> {
                 ),
                 TextButton(
                   onPressed: () {
-                    // TODO: Navigate to password recovery screen
+                    
                   },
                   child: Text(
                     'Quên mật khẩu',

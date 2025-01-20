@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ class ChatService extends ChangeNotifier{
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
   //Send message
+  // ignore: non_constant_identifier_names
   Future<void> SendMessage(String receiverId, String message) async {
     //get current user
     final String currentUserId = _firebaseAuth.currentUser!.uid;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,7 +63,7 @@ class HomePage extends StatelessWidget {
 class PostCard extends StatelessWidget {
   final int index;
 
-  PostCard({required this.index});
+  const PostCard({super.key, required this.index});
 
   @override
   Widget build(BuildContext context) {

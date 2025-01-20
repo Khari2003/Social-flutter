@@ -1,4 +1,6 @@
 
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
       try{
         await authService.signInWithEmailAndPassword(emailController.text, passwordController.text);
       } catch (e){
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

@@ -1,4 +1,6 @@
 
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       try{
         await authService.signUpWithEmailAndPassword(emailController.text, passwordController.text);
       } catch (e){
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -35,7 +38,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     }
-    Widget build(BuildContext context) {
+    @override
+      Widget build(BuildContext context) {
         return Scaffold(
             backgroundColor: Colors.grey.shade200,
             body: SafeArea(
