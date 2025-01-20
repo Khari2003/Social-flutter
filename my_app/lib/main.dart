@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/firebase_options.dart';
+import 'package:my_app/services/auth/authService.dart';
+import 'package:my_app/services/auth/auth_gate.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'screens/mapScreen.dart';
 import 'screens/login/loginscreen.dart';
 
 void main() async {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => Authservice(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -11,9 +23,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'Flutter Map Demo',
-      home: LoginDemo(),
+      home: AuthGate(), // Ensures AuthGate is used for authentication flow
     );
   }
 }
+
