@@ -1,64 +1,59 @@
 const mongoose = require('mongoose')
 
 const userSchema = new mongoose.Schema({
-    // Thông tin cơ bản
     username: {
         type: String,
         required: true,
+        min: 3,
+        max: 15,
         unique: true,
-        trim: true
     },
     email: {
         type: String,
         required: true,
+        min: 4,
+        max: 50,
         unique: true,
-        lowercase: true
     },
     password: {
         type: String,
-        required: true
+        require: true,
+        min: 6,
     },
-
-    // Thông tin cá nhân
-    profile: {
+    description: {
+        type: String,
+        max: 50,
+        default: "",
+    },
+    profilePicture: {
+        type: String,
+        default: "",
+    },
+    followers: {
+        type: Array,
+        default: [],
+    },
+    followings: {
+        type: Array,
+        default: [],
+    },
+    role: {
+        type: String,
+        enum: ["admin", "user"],
+        required: true,
+        default: "user",
+    },
+    gender: {
+        type: String,
+        enum: ["male", "female"],
+    },
+    jwtToken: {
         type: String,
     },
-
-    // Vai trò
-    // role: {
-    //     type: String,
-    //     enum: ['user', 'admin'], // Phân quyền: user hoặc admin
-    //     default: 'user'
-    // },
-
-    // // Hoạt động
-    // favorites: [
-    //     {
-    //         type: mongoose.Schema.Types.ObjectId,
-    //         ref: 'Store' // Danh sách nhà hàng yêu thích
-    //     }
-    // ],
-    // reviews: [
-    //     {
-    //         store: {
-    //             type: mongoose.Schema.Types.ObjectId,
-    //             ref: 'Store' // Nhà hàng được đánh giá
-    //         },
-    //         rating: {
-    //             type: Number,
-    //             min: 0,
-    //             max: 5
-    //         },
-    //         comment: {
-    //             type: String,
-    //             default: ''
-    //         },
-    //         createdAt: {
-    //             type: Date,
-    //             default: Date.now
-    //         }
-    //     }
-    // ],
+    coordinates: {
+        lat: { type: Number },
+        lng: { type: Number }
+    },
 
     // Thời gian
     createdAt: {

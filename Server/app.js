@@ -1,15 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const connectDb = require('./config/connectDB');
-const StoreRouter = require('./router/store.router')
-const TrafficRouter = require('./router/traffic.router')
 const cookieParser = require('cookie-parser');
+
+const UserRouter = require('./router/user.route')
+const ArticleRouter = require('./router/article.route')
+const CommentRouter = require('./router/comment.route')
 
 require('dotenv').config();
 
 const app = express();
 
-// Kết nối đến MongoDB Atlas
 connectDb();
 
 // Cấu hình CORS
@@ -29,8 +30,9 @@ app.get('/', (req, res) => {
     });
 });
 
-app.use('/store', StoreRouter);
-app.use('/traffic', TrafficRouter);
+app.use("/api/user", UserRouter);
+app.use("/api/article", ArticleRouter);
+app.use("/api/comment", CommentRouter);
 
 // Xử lý các yêu cầu preflight
 app.options('*', cors());
@@ -40,4 +42,3 @@ app.options('*', cors());
 app.listen(PORT, '0.0.0.0',() => {
     console.log("Server:" + PORT);
 });
-
