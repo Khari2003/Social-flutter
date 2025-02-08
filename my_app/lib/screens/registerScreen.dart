@@ -51,7 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 //     Icons.message,
                                 //     size: 80
                                 // ),
-                                const SizedBox(height: 50),
                                 //message
                                 Text(
                                     'Tạo tài khoản',
