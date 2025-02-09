@@ -23,7 +23,7 @@ class GroupPostingService extends ChangeNotifier {
 
   /// Upload voice lên Cloudinary
   Future<List<String>> _uploadVoices(List<File> voices) async {
-    return _uploadFiles(voices, 'audio');
+    return _uploadFiles(voices, 'video');
   }
 
   /// Hàm upload file lên Cloudinary qua API server
@@ -93,5 +93,59 @@ class GroupPostingService extends ChangeNotifier {
         .collection('posts')
         .orderBy('timestamp', descending: true)
         .snapshots();
+  }
+
+  Future<void> likePost(String groupId, String postId) async {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
+    DocumentReference postRef = _fireStore.collection('groups').doc(groupId).collection('posts').doc(postId);
+
+    await _fireStore.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(postRef);
+      if (!snapshot.exists) {
+        throw Exception("Post does not exist!");
+      }
+      List<String> likes = List<String>.from(snapshot['likes'] ?? []);
+      if (likes.contains(userId)) {
+        likes.remove(userId);
+      } else {
+        likes.add(userId);
+      }
+      transaction.update(postRef, {'likes': likes});
+    });
+  }
+
+  Future<void> addComment(String groupId, String postId, String comment) async {
+    String? userId = FirebaseAuth.instance.currentUser!.email;
+    DocumentReference postRef = _fireStore.collection('groups').doc(groupId).collection('posts').doc(postId);
+
+    await _fireStore.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(postRef);
+      if (!snapshot.exists) {
+        throw Exception("Post does not exist!");
+      }
+      List<String> comments = List<String>.from(snapshot['comments'] ?? []);
+      comments.add('$userId: $comment');
+      transaction.update(postRef, {'comments': comments});
+    });
+  }
+
+  //Lấy danh sách bình luận
+  Stream<List<Map<String, dynamic>>> getComments(String groupId, String postId) {
+    return _fireStore
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .doc(postId)
+        .snapshots()
+        .map((snapshot) {
+          if (!snapshot.exists || snapshot.data() == null) return [];
+          var data = snapshot.data() as Map<String, dynamic>;
+          return List<Map<String, dynamic>>.from(data['comments'] ?? []);
+        });
+  }
+
+
+  Stream<DocumentSnapshot> getPostDetails(String groupId, String postId) {
+    return _fireStore.collection('groups').doc(groupId).collection('posts').doc(postId).snapshots();
   }
 }

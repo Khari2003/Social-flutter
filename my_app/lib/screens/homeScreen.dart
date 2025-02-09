@@ -217,123 +217,138 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-   void _createPost() {
-    TextEditingController postContentController = TextEditingController();
+  void _createPost() {
+  TextEditingController postContentController = TextEditingController();
+  bool isPosting = false; // Thêm biến trạng thái
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Tạo bài đăng"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: postContentController,
-                decoration: const InputDecoration(labelText: "Nội dung bài đăng"),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.image),
-                    onPressed: () async {
-                      await _pickMedia(ImageSource.gallery, 'image');
-                      setDialogState(() {});
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.video_library),
-                    onPressed: () async {
-                      await _pickMedia(ImageSource.gallery, 'video');
-                      setDialogState(() {});
-                    },
-                  ),
-                ],
-              ),
-              if (selectedImages.isNotEmpty)
-                Wrap(
-                  children: selectedImages.map((image) {
-                    return Stack(
-                      children: [
-                        Image.file(image, width: 80, height: 80, fit: BoxFit.cover),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: IconButton(
-                            icon: Icon(Icons.cancel, color: Colors.red),
-                            onPressed: () {
-                              setState(() => selectedImages.remove(image));
-                              setDialogState(() {});
-                            },
-                          ),
-                        )
-                      ],
-                    );
-                  }).toList(),
-                ),
-              if (selectedVideos.isNotEmpty)
-                Wrap(
-                  children: selectedVideos.map((video) {
-                    return Stack(
-                      children: [
-                        Icon(Icons.video_file, size: 80, color: Colors.blue),
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: IconButton(
-                            icon: Icon(Icons.cancel, color: Colors.red),
-                            onPressed: () {
-                              setState(() => selectedVideos.remove(video));
-                              setDialogState(() {});
-                            },
-                          ),
-                        )
-                      ],
-                    );
-                  }).toList(),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Hủy"),
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text("Tạo bài đăng"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: postContentController,
+              decoration: const InputDecoration(labelText: "Nội dung bài đăng"),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                String content = postContentController.text.trim();
-                if (content.isNotEmpty && selectedGroupId != null) {
-                  try {
-                    await _groupPostingService.createPost(
-                      selectedGroupId!,
-                      content,
-                      images: selectedImages,
-                      videos: selectedVideos,
-                      voices: selectedVoices,
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Bài đăng đã được tạo thành công!")),
-                    );
-                    setState(() {
-                      selectedImages.clear();
-                      selectedVideos.clear();
-                      selectedVoices.clear();
-                    });
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Lỗi: $e")),
-                    );
-                  }
-                }
-              },
-              child: const Text("Đăng bài"),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.image),
+                  onPressed: () async {
+                    await _pickMedia(ImageSource.gallery, 'image');
+                    setDialogState(() {});
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.video_library),
+                  onPressed: () async {
+                    await _pickMedia(ImageSource.gallery, 'video');
+                    setDialogState(() {});
+                  },
+                ),
+              ],
             ),
+            if (selectedImages.isNotEmpty)
+              Wrap(
+                children: selectedImages.map((image) {
+                  return Stack(
+                    children: [
+                      Image.file(image, width: 80, height: 80, fit: BoxFit.cover),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: IconButton(
+                          icon: Icon(Icons.cancel, color: Colors.red),
+                          onPressed: () {
+                            setState(() => selectedImages.remove(image));
+                            setDialogState(() {});
+                          },
+                        ),
+                      )
+                    ],
+                  );
+                }).toList(),
+              ),
+            if (selectedVideos.isNotEmpty)
+              Wrap(
+                children: selectedVideos.map((video) {
+                  return Stack(
+                    children: [
+                      Icon(Icons.video_file, size: 80, color: Colors.blue),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: IconButton(
+                          icon: Icon(Icons.cancel, color: Colors.red),
+                          onPressed: () {
+                            setState(() => selectedVideos.remove(video));
+                            setDialogState(() {});
+                          },
+                        ),
+                      )
+                    ],
+                  );
+                }).toList(),
+              ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Hủy"),
+          ),
+          ElevatedButton(
+            onPressed: isPosting ? null : () async {  // Chặn bấm liên tục
+              String content = postContentController.text.trim();
+              if (content.isNotEmpty && selectedGroupId != null) {
+                setDialogState(() => isPosting = true);  // Bắt đầu gửi bài
+
+                try {
+                  await _groupPostingService.createPost(
+                    selectedGroupId!,
+                    content,
+                    images: selectedImages,
+                    videos: selectedVideos,
+                    voices: selectedVoices,
+                  );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Bài đăng đã được tạo thành công!")),
+                  );
+                  setState(() {
+                    selectedImages.clear();
+                    selectedVideos.clear();
+                    selectedVoices.clear();
+                  });
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Lỗi: $e")),
+                  );
+                } finally {
+                  setDialogState(() => isPosting = false);  // Reset trạng thái dù thành công hay lỗi
+                }
+              }
+            },
+            child: isPosting
+                ? const SizedBox( // Hiển thị vòng tròn loading
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text("Đăng bài"),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   // Hiển thị minibar danh sách nhóm
   Widget _buildMinibar() {
@@ -559,6 +574,7 @@ class _HomePageState extends State<HomePage> {
                       final posts = snapshot.data!
                           .map((doc) => GroupPostCard(
                                 post: Posting.fromMap(doc.data() as Map<String, dynamic>),
+                                postService: _groupPostingService,
                               ))
                           .toList();
 

@@ -1,49 +1,127 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:video_player/video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:my_app/model/group/posting.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+//mport 'package:cloud_firestore/cloud_firestore.dart';
 
-class GroupPostCard extends StatelessWidget {
+class GroupPostCard extends StatefulWidget {
   final Posting post;
+  final GroupPostingService postService;
+  
+  const GroupPostCard({Key? key, required this.post, required this.postService}) : super(key: key);
 
-  const GroupPostCard({Key? key, required this.post}) : super(key: key);
+  @override
+  _GroupPostCardState createState() => _GroupPostCardState();
+}
+
+class _GroupPostCardState extends State<GroupPostCard> {
+  bool isLiked = false;
+  int likeCount = 0;
+  final TextEditingController _commentController = TextEditingController();
+  bool isCommenting = false;
+  bool isCommentSectionOpen = false; 
+  
+  @override
+  void initState() {
+    super.initState();
+    isLiked = widget.post.likes.contains(FirebaseAuth.instance.currentUser!.uid);
+    likeCount = widget.post.likes.length;
+  }
+
+  
+
+  void toggleLike() async {
+    await widget.postService.likePost(widget.post.groupId, widget.post.postId);
+    setState(() {
+      isLiked = !isLiked;
+      likeCount += isLiked ? 1 : -1;
+    });
+  }
+
+ void addComment() async {
+    if (_commentController.text.isNotEmpty && !isCommenting) {
+      setState(() {
+        isCommenting = true; // Bắt đầu gửi bình luận
+        isCommentSectionOpen = !isCommentSectionOpen;
+      });
+
+      try {
+        await widget.postService.addComment(
+          widget.post.groupId,
+          widget.post.postId,
+          _commentController.text,
+        );
+        setState(() {
+          widget.post.comments.add(_commentController.text);
+        });
+        _commentController.clear();
+      } catch (e) {
+        print("Lỗi khi gửi bình luận: $e");
+      } finally {
+        setState(() {
+          isCommenting = false;
+          isCommentSectionOpen = !isCommentSectionOpen;
+        });
+      }
+    }
+  }
+
+  void toggleCommentSection() {
+  setState(() {
+    isCommentSectionOpen = !isCommentSectionOpen;
+  });
+
+  if (isCommentSectionOpen) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => _buildCommentSection(),
+    ).then((_) {
+      setState(() {
+        isCommentSectionOpen = false; // Khi đóng lại thì cập nhật trạng thái
+      });
+    });
+  }
+}
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              post.content,
+              widget.post.content,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
 
             // Hiển thị hình ảnh từ URL
-            if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: post.imageUrls!.map((imageUrl) {
-                  return _buildImagePreview(context, imageUrl);
-                }).toList(),
+            if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+              Center(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.post.imageUrls!.map((imageUrl) {
+                    return _buildImagePreview(context, imageUrl);
+                  }).toList(),
+                ),
               ),
-
             const SizedBox(height: 8),
 
             // Hiển thị video nếu có
-            if (post.videoUrl != null)
-              _buildVideoPreview(post.videoUrl!),
+            if (widget.post.videoUrl != null)
+              _buildVideoPreview(widget.post.videoUrl!),
 
             const SizedBox(height: 8),
 
             // Hiển thị âm thanh nếu có
-            if (post.voiceChatUrl != null)
-              _buildAudioPreview(post.voiceChatUrl!),
+            if (widget.post.voiceChatUrl != null)
+              _buildAudioPreview(widget.post.voiceChatUrl!),
 
             const SizedBox(height: 8),
 
@@ -51,19 +129,89 @@ class GroupPostCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Posted on ${post.timestamp.toDate()}",
+                  "Posted on ${widget.post.timestamp.toDate()}",
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.thumb_up),
-                  onPressed: () {
-                    // Xử lý like bài đăng
-                  },
-                ),
+                Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt, color: isLiked ? Colors.blue : Colors.grey),
+                        onPressed: toggleLike,
+                      ),
+                      Text("$likeCount"),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.comment),
+                    onPressed: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                       builder: (context) => Padding(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom, // Đẩy UI lên khi bàn phím mở
+                        ),
+                        child: _buildCommentSection(),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCommentSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Danh sách bình luận 
+         widget.post.comments.isEmpty
+            ? const Text("Chưa có bình luận nào.")
+            : ListView(
+                shrinkWrap: true,
+                children: widget.post.comments.map((comment) {
+                  List<String> parts = comment.split(': ');
+                  String email = parts.isNotEmpty ? parts[0] : 'Ẩn danh';
+                  String content = parts.length > 1 ? parts.sublist(1).join(': ') : '';
+
+                  return ListTile(
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          email,
+                          style: TextStyle(fontSize: 12), 
+                        ),
+                        Text(
+                          content,
+                          style: TextStyle(fontSize: 16), 
+                        ),
+                        Divider(),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+
+          //Comment
+          SingleChildScrollView(
+            reverse: true,
+            child: TextField(
+              controller: _commentController,
+              decoration: InputDecoration(
+                labelText: "Viết bình luận...",
+                suffixIcon: IconButton(
+                  icon: isCommenting ? CircularProgressIndicator() : const Icon(Icons.send),
+                  onPressed: isCommenting ? null : addComment, //ko cho nhấn lúc gửi
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -77,7 +225,7 @@ class GroupPostCard extends StatelessWidget {
       child: Image.network(
         imageUrl,
         width: MediaQuery.of(context).size.width * 0.8,
-        height: MediaQuery.of(context).size.height * 0.3,
+        height: MediaQuery.of(context).size.height * 0.5,
         fit: BoxFit.cover,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
@@ -114,8 +262,18 @@ class GroupPostCard extends StatelessWidget {
 
   /// Widget hiển thị video từ URL
   Widget _buildVideoPreview(String videoUrl) {
-    return VideoPlayerWidget(videoUrl: videoUrl);
+    return Container(
+      width: double.infinity, 
+      constraints: const BoxConstraints(
+        maxHeight: 250, 
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12), 
+        child: VideoPlayerWidget(videoUrl: videoUrl),
+      ),
+    );
   }
+
 
   /// Widget hiển thị âm thanh từ URL
   Widget _buildAudioPreview(String audioUrl) {
@@ -123,7 +281,7 @@ class GroupPostCard extends StatelessWidget {
   }
 }
 
-/// Widget để phát video từ URL
+///Hiện thị video
 class VideoPlayerWidget extends StatefulWidget {
   final String videoUrl;
   const VideoPlayerWidget({Key? key, required this.videoUrl}) : super(key: key);
@@ -147,24 +305,27 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     return _controller.value.isInitialized
-        ? AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                VideoPlayer(_controller),
-                IconButton(
-                  icon: Icon(
-                    _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  VideoPlayer(_controller),
+                  IconButton(
+                    icon: Icon(
+                      _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _controller.value.isPlaying ? _controller.pause() : _controller.play();
+                      });
+                    },
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _controller.value.isPlaying ? _controller.pause() : _controller.play();
-                    });
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           )
         : const Center(child: CircularProgressIndicator());
@@ -176,6 +337,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     super.dispose();
   }
 }
+
 
 /// Widget để phát âm thanh từ URL
 class AudioPlayerWidget extends StatefulWidget {

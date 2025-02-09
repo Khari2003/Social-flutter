@@ -3,41 +3,49 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_app/model/group/message.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 class GroupChatService extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
+  final String apiEndpoint = "http://192.168.0.100:5000/upload"; 
 
-   // Save images to local storage
-  Future<List<String>> _saveImages(String groupId, String chatRoomId, String messageId, List<File> images) async {
-    return _saveFiles(groupId, chatRoomId, messageId, images, 'images');
+  /// Upload ảnh lên Cloudinary
+  Future<List<String>> _uploadImages(List<File> images) async {
+    return _uploadFiles(images, 'image');
   }
 
-  // Save videos to local storage
-  Future<List<String>> _saveVideos(String groupId, String chatRoomId, String messageId, List<File> videos) async {
-    return _saveFiles(groupId, chatRoomId, messageId, videos, 'videos');
+  /// Upload video lên Cloudinary
+  Future<List<String>> _uploadVideos(List<File> videos) async {
+    return _uploadFiles(videos, 'video');
   }
 
-  // Save voice recordings to local storage
-  Future<List<String>> _saveVoices(String groupId, String chatRoomId, String messageId, List<File> voices) async {
-    return _saveFiles(groupId, chatRoomId, messageId, voices, 'voices');
+  /// Upload voice lên Cloudinary
+  Future<List<String>> _uploadVoices(List<File> voices) async {
+    return _uploadFiles(voices, 'video');
   }
 
-  Future<List<String>> _saveFiles(String groupId, String chatRoomId, String messageId, List<File> files, String folder) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    List<String> filePaths = [];
-
-    final folderPath = '${directory.path}/group/$groupId/chatrooms/$chatRoomId/messages/$messageId/$folder';
-    await Directory(folderPath).create(recursive: true);
+  /// Hàm upload file lên Cloudinary qua API server
+  Future<List<String>> _uploadFiles(List<File> files, String type) async {
+    List<String> urls = [];
 
     for (File file in files) {
-      final filename = '${folder}_${timestamp}_${file.hashCode}_${file.path.split('/').last}';
-      final filePath = '$folderPath/$filename';
-      await file.copy(filePath);
-      filePaths.add(filePath);
+      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint));
+      request.fields['type'] = type; 
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      var response = await request.send();
+      var responseBody = await response.stream.bytesToString();
+      var jsonData = json.decode(responseBody);
+
+      if (response.statusCode == 200 && jsonData['url'] != null) {
+        urls.add(jsonData['url']);
+      } else {
+        throw Exception("Upload failed: ${jsonData['error']}");
+      }
     }
-    return filePaths;
+    return urls;
   }
 
   // Send Group Message (Public Chat)
@@ -47,13 +55,9 @@ class GroupChatService extends ChangeNotifier {
       final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
       final String messageId = _fireStore.collection('groups').doc(groupId).collection('chat_rooms').doc(groupId).collection('messages').doc().id;
       final Timestamp timestamp = Timestamp.now();
-      List<String> imageUrls = [];
-      List<String> videoUrls = [];
-      List<String> voiceChatUrls = [];
-
-      if (images != null) imageUrls.addAll(await _saveImages(groupId, groupId, messageId, images));
-      if (videos != null) videoUrls.addAll(await _saveVideos(groupId, groupId, messageId, videos));
-      if (voices != null) voiceChatUrls.addAll(await _saveVoices(groupId, groupId, messageId, voices));
+      List<String> imageUrls = images != null ? await _uploadImages(images) : [];
+      List<String> videoUrls = videos != null ? await _uploadVideos(videos) : [];
+      List<String> voiceChatUrls = voices != null ? await _uploadVoices(voices) : [];
 
       Message newMessage = Message(
         senderId: currentUserId,
@@ -87,9 +91,6 @@ class GroupChatService extends ChangeNotifier {
       final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
       
       final Timestamp timestamp = Timestamp.now();
-      List<String> imageUrls = [];
-      List<String> videoUrls = [];
-      List<String> voiceChatUrls = [];
 
       List<String> ids = [currentUserId, receiverId];
       ids.sort();
@@ -97,9 +98,9 @@ class GroupChatService extends ChangeNotifier {
 
       final String messageId = _fireStore.collection('groups').doc(groupId).collection('chat_rooms').doc(chatRoomId).collection('messages').doc().id;
 
-      if (images != null) imageUrls.addAll(await _saveImages(groupId, chatRoomId, messageId, images));
-      if (videos != null) videoUrls.addAll(await _saveVideos(groupId, chatRoomId, messageId, videos));
-      if (voices != null) voiceChatUrls.addAll(await _saveVoices(groupId, chatRoomId, messageId, voices));
+      List<String> imageUrls = images != null ? await _uploadImages(images) : [];
+      List<String> videoUrls = videos != null ? await _uploadVideos(videos) : [];
+      List<String> voiceChatUrls = voices != null ? await _uploadVoices(voices) : [];
 
       Message newMessage = Message(
         senderId: currentUserId,
