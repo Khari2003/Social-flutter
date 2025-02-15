@@ -4,6 +4,8 @@ import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/auth/auth_gate.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'screens/mapScreen.dart';
+import 'screens/login/loginscreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +25,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'Flutter Map Demo',
-      home: AuthGate()
+      home: AuthGate(), // Ensures AuthGate is used for authentication flow
     );
   }
 }
+
