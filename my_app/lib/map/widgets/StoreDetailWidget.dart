@@ -31,7 +31,7 @@ class StoreDetailWidget extends StatelessWidget {
   });
 
   Widget _buildImageWidget() {
-    if (imageURL != null && imageURL!.startsWith('http')) {
+    if (imageURL != null && imageURL!.startsWith('https')) {
       return Image.network(
         imageURL!,
         height: 200,
