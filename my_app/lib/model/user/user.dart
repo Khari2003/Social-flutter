@@ -4,7 +4,7 @@ class User {
   final String userId;
   final String userEmail;
   final Timestamp timestamp;
-  final Map<String, double>? location;
+  final GeoPoint? location;
   final bool isAllowedLocation;
 
   User({
@@ -20,8 +20,8 @@ class User {
       'uid': userId,
       'email': userEmail,
       'timestamp': timestamp,
-      'location': location,
-      'isAllowedLocation': isAllowedLocation
+      'location': location != null ? {'lat': location!.latitude, 'lng': location!.longitude} : null,
+      'isAllowedLocation': isAllowedLocation,
     };
   }
 }
