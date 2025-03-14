@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:my_app/services/group/groupService.dart';
 import 'dart:async';
 import '../utils/buildMarkers.dart';
 import '../utils/dashPolyline.dart';
@@ -19,6 +20,7 @@ class FlutterMapWidget extends StatefulWidget {
   final String routeType;
   final Function(Map<String, dynamic>) onStoreTap;
   final LatLng? searchedLocation;
+  final String groupId;
 
   const FlutterMapWidget({
     required this.mapController,
@@ -32,6 +34,7 @@ class FlutterMapWidget extends StatefulWidget {
     required this.routeType,
     required this.onStoreTap,
     this.searchedLocation,
+    required this.groupId,
     super.key,
   });
 
@@ -42,12 +45,14 @@ class FlutterMapWidget extends StatefulWidget {
 class _FlutterMapWidgetState extends State<FlutterMapWidget> {
   late LatLng animatedLocation;
   Timer? movementTimer;
+  List<LatLng> memberLocations = [];
 
   @override
   void initState() {
     super.initState();
     animatedLocation = widget.currentLocation;
     _startSmoothMovement();
+    _fetchMemberLocations();
   }
 
   @override
@@ -55,6 +60,19 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentLocation != widget.currentLocation) {
       _startSmoothMovement();
+    }
+  }
+
+  Future<void> _fetchMemberLocations() async {
+    try {
+      List<Map<String, dynamic>> members = 
+          await GroupService().getGroupMemberLocations(widget.groupId);
+      
+      setState(() {
+        memberLocations = members.map((m) => LatLng(m['lat'], m['lng'])).toList();
+      });
+    } catch (e) {
+      print("Error fetching member locations: $e");
     }
   }
 
@@ -148,6 +166,17 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                   onStoreTap: widget.onStoreTap,
                   mapRotation: heading,
                 ),
+                for (var loc in memberLocations)
+                  Marker(
+                    point: loc,
+                    width: 50.0,
+                    height: 50.0,
+                    child: const Icon(
+                      Icons.person_pin_circle,
+                      color: Colors.green,
+                      size: 40.0,
+                    ),
+                  ),
                 if (widget.searchedLocation != null)
                   Marker(
                     width: 80.0,
