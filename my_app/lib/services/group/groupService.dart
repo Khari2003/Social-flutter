@@ -86,4 +86,37 @@ class GroupService extends ChangeNotifier {
       throw Exception("Failed to fetch user groups: $e");
     }
   }
+
+  Future<List<Map<String, dynamic>>> getGroupMemberLocations(String groupId) async {
+    try {
+      DocumentSnapshot groupSnapshot = 
+          await _fireStore.collection('groups').doc(groupId).get();
+      
+      if (!groupSnapshot.exists) {
+        throw Exception("Group does not exist");
+      }
+
+      List<dynamic> members = groupSnapshot['members'];
+      List<Map<String, dynamic>> memberLocations = [];
+
+      for (String memberId in members) {
+        DocumentSnapshot userSnapshot = 
+            await _fireStore.collection('users').doc(memberId).get();
+
+        if (userSnapshot.exists) {
+          var userData = userSnapshot.data() as Map<String, dynamic>;
+          if (userData.containsKey('location')) {
+            memberLocations.add({
+              "id": memberId,
+              "lat": userData['location']['lat'],
+              "lng": userData['location']['lng']
+            });
+          }
+        }
+      }
+      return memberLocations;
+    } catch (e) {
+      throw Exception("Failed to fetch member locations: $e");
+    }
+  }
 }
