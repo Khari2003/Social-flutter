@@ -2,11 +2,13 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class StoreService {
 
   static Future<List<Map<String, dynamic>>> fetchStoresData() async {
-    final response = await http.get(Uri.parse('http://172.19.200.122:4000/store/getall'));
+    final String? ipStore = dotenv.env['IP'];
+    final response = await http.get(Uri.parse('http://$ipStore:4000/store/getall'));
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(json.decode(response.body));
     } else {

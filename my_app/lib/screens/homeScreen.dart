@@ -57,10 +57,11 @@ class _HomePageState extends State<HomePage> {
               })
           .toList();
     });
-
+    print("User groups: $userGroups");
     if (selectedGroupId == null && userGroups.isNotEmpty) {
         selectedGroupId = userGroups.first["id"];
         _fetchGroupMembers(userGroups.first["id"]);
+        print("Selected Group ID: $selectedGroupId");
       }
   }
 
