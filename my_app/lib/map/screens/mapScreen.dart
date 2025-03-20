@@ -9,9 +9,8 @@ import '../services/storeService.dart';
 import '../widgets/radiusSlider.dart';
 import '../widgets/storeListWidget.dart';
 import '../widgets/StoreDetailWidget.dart';
-// ignore: depend_on_referenced_packages
-import 'package:flutter_svg/flutter_svg.dart';
-
+import '../widgets/flutterMapWidget.dart';
+import '../widgets/searchStoreWidget.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -21,9 +20,10 @@ class MapScreen extends StatefulWidget {
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   LatLng? currentLocation;
   List<Map<String, dynamic>> allStores = [];
+  List<Map<String, dynamic>> traffic = [];
   List<Map<String, dynamic>> filteredStores = [];
   List<LatLng> routeCoordinates = [];
   double radius = 1000.0;
@@ -34,38 +34,51 @@ class _MapScreenState extends State<MapScreen> {
   bool isNavigating = false; // Xác định chế độ điều hướng
   double? userHeading; // Hướng của người dùng
   Map<String, dynamic>? navigatingStore;
+  String routeType = 'driving';
+  AnimationController? _animationController;
+  LatLng? searchedLocation;
 
   @override
   void initState() {
     super.initState();
     fetchInitialData();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController?.dispose();
+    super.dispose();
   }
 
   Future<void> fetchInitialData() async {
-    final location = await LocationService.fetchCurrentLocation();
-    final storeData = await StoreService.fetchStoresData();
+    final results = await Future.wait([
+      LocationService.fetchCurrentLocation(),
+      StoreService.fetchStoresData(),
+    ]);
+
     setState(() {
-      currentLocation = location;
-      allStores = storeData;
+      currentLocation = results[0] as LatLng;
+      allStores = results[1] as List<Map<String, dynamic>>;
       updateFilteredStores();
     });
   }
 
   void updateFilteredStores() {
-    if (currentLocation != null) {
-      setState(() {
-        filteredStores = allStores.where((store) {
-          final coordinates = store['coordinates'];
-          final storeLocation = LatLng(coordinates['lat'], coordinates['lng']);
-          final distance = Distance().as(
-            LengthUnit.Meter,
-            currentLocation!,
-            storeLocation,
-          );
-          return distance <= radius;
-        }).toList();
-      });
-    }
+    if (currentLocation == null) return;
+
+    final List<Map<String, dynamic>> updatedStores = allStores.where((store) {
+      final coordinates = store['coordinates'];
+      final storeLocation = LatLng(coordinates['lat'], coordinates['lng']);
+      return Distance().as(LengthUnit.Meter, currentLocation!, storeLocation) <= radius;
+    }).toList();
+
+    setState(() {
+      filteredStores = updatedStores;
+    });
   }
 
   void _startNavigation() {
@@ -77,38 +90,89 @@ class _MapScreenState extends State<MapScreen> {
 
   void _trackUserLocationAndDirection() {
     final locationService = LocationService();
-    locationService.onLocationChanged.listen((position) {
+    LatLng? previousLocation = currentLocation;
+
+    locationService.onLocationChanged.listen((position) async {
       final newLocation = LatLng(position.latitude, position.longitude);
+      _animateMapToLocation(newLocation);
+
+      if (previousLocation != null) {
+        // Tính toán khoảng cách giữa vị trí cũ và mới
+        final distance = Distance().as(LengthUnit.Meter, previousLocation!, newLocation);
+
+        // Nếu khoảng cách quá lớn, sử dụng nội suy để di chuyển mượt mà
+        if (distance > 1) {
+          final steps = 10; // Số bước di chuyển
+          final latStep = (newLocation.latitude - previousLocation!.latitude) / steps;
+          final lngStep = (newLocation.longitude - previousLocation!.longitude) / steps;
+
+          for (int i = 0; i < steps; i++) {
+            await Future.delayed(const Duration(milliseconds: 50)); // Độ trễ giữa các bước
+            setState(() {
+              currentLocation = LatLng(
+                previousLocation!.latitude + latStep * i,
+                previousLocation!.longitude + lngStep * i,
+              );
+            });
+          }
+        }
+      }
 
       setState(() {
-        currentLocation = newLocation; // Update location
-        userHeading = position.heading; // Update heading
+        currentLocation = newLocation; // Cập nhật vị trí cuối cùng
+        userHeading = position.heading; // Cập nhật hướng
       });
 
-      _checkIfOnRoute(newLocation); // Check route
+      if (isNavigating) {
+        _mapController.move(newLocation, 20.0); // Di chuyển bản đồ
+        _checkIfOnRoute(newLocation); // Kiểm tra vị trí trên tuyến đường
+        _checkIfArrived(newLocation); // Thêm kiểm tra đến nơi
+      }
+
+      previousLocation = newLocation;
     });
   }
 
-  Future<void> _checkIfOnRoute(LatLng userLocation) async {
-    if (routeCoordinates.isNotEmpty) {
-      final nextPoint = routeCoordinates.first;
+  void _animateMapToLocation(LatLng newLocation) {
+    if (_animationController == null) return;
 
-      final distanceToNextPoint = Distance().as(
-        LengthUnit.Meter,
-        userLocation,
-        nextPoint,
+    final latTween = Tween<double>(begin: currentLocation?.latitude, end: newLocation.latitude);
+    final lngTween = Tween<double>(begin: currentLocation?.longitude, end: newLocation.longitude);
+
+    final animation = CurvedAnimation(
+      parent: _animationController!,
+      curve: Curves.easeInOut,
+    );
+
+    animation.addListener(() {
+      _mapController.move(
+        LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
+        _mapController.move(newLocation, 20.0) as double
       );
+    });
 
-      if (distanceToNextPoint < 20) {
-        setState(() {
-          routeCoordinates.removeAt(0);
-        });
-      } else {
-        final newRoute = await RouteService.fetchRoute(userLocation, routeCoordinates.last);
-        setState(() {
-          routeCoordinates = newRoute;
-        });
-      }
+    _animationController!.forward(from: 0.0);
+  }
+
+  Future<void> _checkIfOnRoute(LatLng userLocation) async {
+    if (routeCoordinates.isEmpty) return;
+
+    final nextPoint = routeCoordinates.first;
+    final distanceToNextPoint = Distance().as(LengthUnit.Meter, userLocation, nextPoint);
+
+    if (distanceToNextPoint < 5) { 
+      setState(() {
+        routeCoordinates.removeAt(0);
+      });
+    } else if (distanceToNextPoint > 10) { 
+      final newRoute = await RouteService.fetchRouteForMapScreen(
+        userLocation,
+        routeCoordinates.last,
+        routeType,
+      );
+      setState(() {
+        routeCoordinates = newRoute;
+      });
     }
   }
 
@@ -118,45 +182,56 @@ class _MapScreenState extends State<MapScreen> {
       routeCoordinates.clear(); // Xóa lộ trình
       userHeading = null; // Xóa hướng người dùng
       selectedStore = null; // Bỏ chọn cửa hàng
+      searchedLocation = null; // Xóa địa chỉ tìm kiếm
       radius = 1000.0; // Reset bán kính
       updateFilteredStores();
     });
   }
 
+  void _checkIfArrived(LatLng userLocation) {
+      if (routeCoordinates.isNotEmpty) {
+          final destination = routeCoordinates.last;
+          final distanceToDestination = Distance().as(LengthUnit.Meter, userLocation, destination);
+
+          if (distanceToDestination < 5) { // Ngưỡng 5m
+              setState(() {
+                  isNavigating = false;
+                  routeCoordinates.clear();
+              });
+
+              // Hiển thị thông báo đã đến nơi
+              showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                      title: const Text("Đã đến nơi"),
+                      content: const Text("Bạn đã đến điểm đến!"),
+                      actions: [
+                          TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text("OK"),
+                          ),
+                      ],
+                  ),
+              );
+          }
+      }
+  }
 
   Future<void> updateRouteToStore(LatLng destination) async {
     if (currentLocation != null) {
-      final route = await RouteService.fetchRoute(currentLocation!, destination);
-      setState(() {
-        routeCoordinates = route;
-        navigatingStore = selectedStore;
-        selectedStore = null; // Ẩn StoreDetail sau khi vẽ tuyến đường
-      });
-
-      // Tính toán trung tâm giữa vị trí hiện tại và đích
-      final double centerLat = (currentLocation!.latitude + destination.latitude) / 2;
-      final double centerLng = (currentLocation!.longitude + destination.longitude) / 2;
-
-      // Xác định mức zoom dựa trên khoảng cách giữa hai điểm
-      final double distance = Distance().as(
-        LengthUnit.Kilometer,
-        currentLocation!,
-        destination,
+      await RouteService.updateRouteToStore(
+        currentLocation: currentLocation!,
+        destination: destination,
+        routeType: routeType,
+        mapController: _mapController,
+        updateRouteCoordinates: (route) {
+          setState(() {
+            routeCoordinates = route;
+            navigatingStore = selectedStore;
+            selectedStore = null;
+          });
+        },
       );
-
-      double zoomLevel;
-      if (distance < 1) {
-        zoomLevel = 16.0; // Giảm mức zoom
-      } else if (distance < 5) {
-        zoomLevel = 14.0; // Giảm mức zoom
-      } else if (distance < 10) {
-        zoomLevel = 12.0;
-      } else {
-        zoomLevel = 10.0; // Giảm mức zoom xa hơn
-      }
-
-      // Di chuyển bản đồ đến vị trí trung tâm và áp dụng mức zoom
-      _mapController.move(LatLng(centerLat, centerLng), zoomLevel);
     }
   }
 
@@ -173,55 +248,86 @@ class _MapScreenState extends State<MapScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Stack(
                 children: [
-                  FlutterMap(
+                  FlutterMapWidget(
                     mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: currentLocation!,
-                      initialZoom: 14.0,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      ),
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: routeCoordinates,
-                            strokeWidth: 4.0,
-                            color: Colors.blue,
+                    currentLocation: currentLocation!,
+                    radius: radius,
+                    isNavigating: isNavigating,
+                    userHeading: userHeading,
+                    navigatingStore: navigatingStore,
+                    filteredStores: filteredStores,
+                    routeCoordinates: routeCoordinates,
+                    routeType: routeType,
+                    onStoreTap: (store) {
+                      setState(() {
+                        selectedStore = store;
+                      });
+                    },
+                    searchedLocation: searchedLocation,
+                    groupId: "GROUP_ID_HERE",
+                  ),  
+                  // Nút tìm kiếm địa chỉ
+                  Positioned(
+                    top: 16.0,
+                    left: 16.0,
+                    child: FloatingActionButton(
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SearchPlaces(),
                           ),
-                        ],
-                      ),
-                      if (!isNavigating)
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: radius, end: radius),
-                          duration: const Duration(milliseconds: 300),
-                          builder: (context, value, child) {
-                            return CircleLayer(
-                              circles: [
-                                CircleMarker(
-                                  point: currentLocation!,
-                                  // ignore: deprecated_member_use
-                                  color: Colors.blue.withOpacity(0.3),
-                                  borderStrokeWidth: 1.0,
-                                  borderColor: Colors.blue,
-                                  useRadiusInMeter: true,
-                                  radius: value,
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      MarkerLayer(
-                        markers: _buildMarkers(),
-                      ),
-                    ],
+                        );
+
+                        if (result != null && result is Map<String, String>) {
+                          final double lat = double.parse(result['lat']!);
+                          final double lon = double.parse(result['lon']!);
+                          LatLng newLocation = LatLng(lat, lon);
+
+                          setState(() {
+                            searchedLocation = newLocation; // Lưu vị trí tìm kiếm
+                            _mapController.move(newLocation, 16.0);
+                          });
+
+                          // Tạo tuyến đường đến vị trí tìm kiếm
+                          if (currentLocation != null) {
+                            await updateRouteToStore(newLocation);
+                          }
+                        }
+                      },
+                      child: const Icon(Icons.search),
+                    ),
                   ),
                   Positioned(
-                    bottom: 120.0,
-                    right: 20.0,
+                    bottom: 150.0,
+                    right: 33.0,
                     child: Column(
                       children: [
+                        FloatingActionButton(
+                          onPressed: () async {
+                            setState(() {
+                              routeType = routeType == 'driving' ? 'walking' : 'driving';
+                            });
+
+                            // Cập nhật lại tuyến đường
+                            if (currentLocation != null && routeCoordinates.isNotEmpty) {
+                              final newRoute = await RouteService.fetchRouteForMapScreen(
+                                currentLocation!,
+                                routeCoordinates.last,
+                                routeType,
+                              );
+                              setState(() {
+                                routeCoordinates = newRoute;
+                              });
+                            }
+                          },
+                          heroTag: 'toggle_route_type',
+                          backgroundColor: routeType == 'driving' ? Colors.blue : Colors.green,
+                          child: Icon(
+                            routeType == 'driving' ? Icons.directions_car : Icons.directions_walk,
+                          ),
+                        ),
+                        const SizedBox(height: 16.0),
                         // Nút "Bắt đầu đi"
                         if (routeCoordinates.isNotEmpty && !isNavigating)
                           FloatingActionButton(
@@ -232,7 +338,9 @@ class _MapScreenState extends State<MapScreen> {
                               _startNavigation(); // Bắt đầu điều hướng
                             },
                             heroTag: 'start_navigation',
-                            child: const Icon(Icons.directions_walk),
+                            child: const Icon(
+                              Icons.play_arrow,
+                            ),
                           ),
                         const SizedBox(height: 16.0),
 
@@ -323,7 +431,11 @@ class _MapScreenState extends State<MapScreen> {
                           child: FloatingActionButton(
                             onPressed: () {
                               if (currentLocation != null) {
-                                _mapController.move(currentLocation!, 14.0);
+                                if(isNavigating) {
+                                  _mapController.move(currentLocation!, 20.0);
+                                } else {
+                                  _mapController.move(currentLocation!, 14.0);
+                                }
                               }
                             },
                             child: const Icon(Icons.my_location),
@@ -387,66 +499,5 @@ class _MapScreenState extends State<MapScreen> {
               ),
       ),
     );
-  }
-
-  List<Marker> _buildMarkers() {
-    List<Marker> markers = [];
-
-    // Marker cho vị trí của người dùng
-    if (currentLocation != null) {
-      markers.add(Marker(
-        width: 80.0,
-        height: 80.0,
-        point: currentLocation!,
-        child: isNavigating && userHeading != null
-            ? Transform.rotate(
-                angle: (userHeading! + 90) * (3.14159265359 / 180),
-                child: SvgPicture.asset(
-                  'assets/location-arrow-svgrepo-com.svg', // Custom SVG cho điều hướng
-                  width: 40.0,
-                  height: 40.0,
-                ),
-              )
-            : const Icon(
-                Icons.my_location,
-                color: Colors.green,
-                size: 40.0,
-              ),
-      ));
-    }
-
-    // Marker cho cửa hàng được chọn khi đang điều hướng
-    if (isNavigating) {
-      markers.add(Marker(
-        width: 80.0,
-        height: 80.0,
-        point: LatLng(
-          navigatingStore!['coordinates']['lat'],
-          navigatingStore!['coordinates']['lng'],
-        ),
-        child: const Icon(Icons.location_on, color: Colors.red, size: 40.0),
-      ));
-    }
-
-    // Marker cho tất cả các cửa hàng (chỉ khi không điều hướng)
-    if (!isNavigating) {
-      markers.addAll(filteredStores.map((store) {
-        final coordinates = store['coordinates'];
-        return Marker(
-          width: 80.0,
-          height: 80.0,
-          point: LatLng(coordinates['lat'], coordinates['lng']),
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                selectedStore = store;
-              });
-            },
-            child: const Icon(Icons.location_on, color: Colors.red, size: 40.0),
-          ),
-        );
-      }).toList());
-    } 
-    return markers;
   }
 }

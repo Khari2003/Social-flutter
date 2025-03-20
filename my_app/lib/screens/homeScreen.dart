@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:my_app/components/group/homepage/groupPostCard.dart';
 import 'package:my_app/components/group/homepage/groupSelectionWidget.dart';
 import 'package:my_app/screens/chatScreen.dart';
+import 'package:my_app/map/screens/mapScreen.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:my_app/services/group/groupService.dart';
 import 'package:my_app/model/group/posting.dart';
@@ -551,7 +552,7 @@ class _HomePageState extends State<HomePage> {
               tooltip: "Thoát",
             ),
           ]),
-       body: Stack(
+        body: Stack(
         children: [
           // Nội dung chính
           Positioned.fill(
@@ -589,6 +590,22 @@ class _HomePageState extends State<HomePage> {
           // Minibar danh sách nhóm (bên phải)
           _buildMinibar(),
 
+          Positioned(
+            top: 10,
+            right: MediaQuery.of(context).size.width * 0.12, // Dịch sang trái một chút
+            child: FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MapScreen()),
+                );
+              },
+              mini: true,
+              child: const Icon(Icons.map),
+              tooltip: "Đi đến bản đồ",
+            ),
+          ),
+
           // Nút mở member sidebar (cố định bên trái màn hình)
           Positioned(
             top: 10,
@@ -619,6 +636,16 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
+          // FloatingActionButton(
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (context) => const MapScreen()),
+          //     );
+          //   },
+          //   child: const Icon(Icons.map),
+          //   tooltip: "Đi đến bản đồ",
+          // ),
         ],
       ),
     );

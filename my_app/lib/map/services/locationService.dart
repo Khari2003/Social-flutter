@@ -39,12 +39,12 @@ class LocationService {
     }
   }
 
-  // Stream to track location changes
+  // Stream to track location updates every 5 seconds
   Stream<Position> get onLocationChanged {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Update when user moves 10 meters
+        distanceFilter: 1,
       ),
     );
   }
