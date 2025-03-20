@@ -264,7 +264,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       });
                     },
                     searchedLocation: searchedLocation,
-                    groupId: "GROUP_ID_HERE",
+                    groupId: "vREOqKMchB1Jo6khvh3R",
                   ),  
                   // Nút tìm kiếm địa chỉ
                   Positioned(
