@@ -88,6 +88,7 @@ class GroupService extends ChangeNotifier {
   }
 
   Future<List<Map<String, dynamic>>> getGroupMemberLocations(String groupId) async {
+    print("Fetching locations for group: $groupId");
     try {
       DocumentSnapshot groupSnapshot = 
           await _fireStore.collection('groups').doc(groupId).get();
@@ -100,9 +101,8 @@ class GroupService extends ChangeNotifier {
       List<Map<String, dynamic>> memberLocations = [];
 
       for (String memberId in members) {
-        DocumentSnapshot userSnapshot = 
-            await _fireStore.collection('users').doc(memberId).get();
-
+        DocumentSnapshot userSnapshot = await _fireStore.collection('users').doc(memberId).get();
+        print(userSnapshot);
         if (userSnapshot.exists) {
           var userData = userSnapshot.data() as Map<String, dynamic>;
           if (userData.containsKey('location')) {

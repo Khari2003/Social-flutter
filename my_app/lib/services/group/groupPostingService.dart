@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:my_app/model/group/posting.dart';
 
 class GroupPostingService extends ChangeNotifier {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
+
   final String apiEndpoint = "http://192.168.215.200:5000/upload"; 
 
   /// Upload ảnh lên Cloudinary
@@ -31,7 +32,7 @@ class GroupPostingService extends ChangeNotifier {
     List<String> urls = [];
 
     for (File file in files) {
-      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint));
+      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint!));
       request.fields['type'] = type; 
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
