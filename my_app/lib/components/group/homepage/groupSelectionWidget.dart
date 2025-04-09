@@ -18,7 +18,7 @@ class GroupSelectionWidget extends StatelessWidget {
         children: [
           const Text(
             "Bạn chưa tham gia nhóm nào!",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color.fromARGB(255, 226, 229, 233)),
           ),
           const SizedBox(height: 20),
           ElevatedButton(

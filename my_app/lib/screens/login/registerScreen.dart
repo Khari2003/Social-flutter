@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../components/textField.dart';
-import '../components/button.dart';
+import '../../components/textField.dart';
+import '../../components/button.dart';
 
 class RegisterScreen extends StatefulWidget {
   final void Function()? onTap;

@@ -1,343 +1,273 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/components/group/post/groupPostDetail.dart';
+import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
-import 'package:video_player/video_player.dart';
+import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:my_app/model/group/posting.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-//mport 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class GroupPostCard extends StatefulWidget {
+class GroupPostCard extends StatelessWidget {
   final Posting post;
   final GroupPostingService postService;
-  
-  const GroupPostCard({Key? key, required this.post, required this.postService}) : super(key: key);
 
-  @override
-  _GroupPostCardState createState() => _GroupPostCardState();
-}
-
-class _GroupPostCardState extends State<GroupPostCard> {
-  bool isLiked = false;
-  int likeCount = 0;
+  GroupPostCard({Key? key, required this.post, required this.postService})
+      : super(key: key);
   final TextEditingController _commentController = TextEditingController();
-  bool isCommenting = false;
-  bool isCommentSectionOpen = false; 
-  
-  @override
-  void initState() {
-    super.initState();
-    isLiked = widget.post.likes.contains(FirebaseAuth.instance.currentUser!.uid);
-    likeCount = widget.post.likes.length;
+  final ValueNotifier<bool> isCommenting = ValueNotifier(false);
+  void toggleLike() {
+    postService.likePost(post.groupId, post.postId);
   }
 
-  
-
-  void toggleLike() async {
-    await widget.postService.likePost(widget.post.groupId, widget.post.postId);
-    setState(() {
-      isLiked = !isLiked;
-      likeCount += isLiked ? 1 : -1;
-    });
-  }
-
- void addComment() async {
-    if (_commentController.text.isNotEmpty && !isCommenting) {
-      setState(() {
-        isCommenting = true; // Bắt đầu gửi bình luận
-        isCommentSectionOpen = !isCommentSectionOpen;
-      });
+  void addComment() async {
+    if (_commentController.text.isNotEmpty && !isCommenting.value) {
+      isCommenting.value = true; // Bắt đầu gửi bình luận
 
       try {
-        await widget.postService.addComment(
-          widget.post.groupId,
-          widget.post.postId,
+        await postService.addComment(
+          post.groupId,
+          post.postId,
           _commentController.text,
         );
-        setState(() {
-          widget.post.comments.add(_commentController.text);
-        });
+        post.comments.add(_commentController.text);
         _commentController.clear();
       } catch (e) {
         print("Lỗi khi gửi bình luận: $e");
       } finally {
-        setState(() {
-          isCommenting = false;
-          isCommentSectionOpen = !isCommentSectionOpen;
-        });
+        isCommenting.value = false;
       }
     }
   }
 
-  void toggleCommentSection() {
-  setState(() {
-    isCommentSectionOpen = !isCommentSectionOpen;
-  });
+  String formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
 
-  if (isCommentSectionOpen) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => _buildCommentSection(),
-    ).then((_) {
-      setState(() {
-        isCommentSectionOpen = false; // Khi đóng lại thì cập nhật trạng thái
-      });
-    });
+    if (difference.inHours < 24) {
+      return "Cách đây ${difference.inHours} giờ";
+    } else if (difference.inDays < 6) {
+      return "Cách đây ${difference.inDays} ngày";
+    } else if (difference.inDays < 365) {
+      return DateFormat("dd 'tháng' MM").format(timestamp);
+    } else {
+      return DateFormat("dd 'tháng' MM yyyy").format(timestamp);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.post.content,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('groups')
+          .doc(post.groupId)
+          .collection('posts')
+          .doc(post.postId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
 
-            // Hiển thị hình ảnh từ URL
-            if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
-              Center(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.post.imageUrls!.map((imageUrl) {
-                    return _buildImagePreview(context, imageUrl);
-                  }).toList(),
+        var postData = snapshot.data!;
+        List<String> likes = List<String>.from(postData['likes'] ?? []);
+        bool isLiked = likes.contains(FirebaseAuth.instance.currentUser!.uid);
+        int likeCount = likes.length;
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PostDetailScreen(
+                  post: post,
+                  isLiked: isLiked,
+                  likeCount: likeCount,
+                  postService: postService,
+                  toggleLike: toggleLike,
                 ),
               ),
-            const SizedBox(height: 8),
-
-            // Hiển thị video nếu có
-            if (widget.post.videoUrl != null)
-              _buildVideoPreview(widget.post.videoUrl!),
-
-            const SizedBox(height: 8),
-
-            // Hiển thị âm thanh nếu có
-            if (widget.post.voiceChatUrl != null)
-              _buildAudioPreview(widget.post.voiceChatUrl!),
-
-            const SizedBox(height: 8),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            );
+          },
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+            clipBehavior: Clip.none,
+            color: const Color.fromARGB(255, 31, 34, 34),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Posted on ${widget.post.timestamp.toDate()}",
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                Row(
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        icon: Icon(isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt, color: isLiked ? Colors.blue : Colors.grey),
-                        onPressed: toggleLike,
+                      Text(
+                        post.content,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color.fromARGB(255, 226, 229, 233),
+                        ),
                       ),
-                      Text("$likeCount"),
+                      const SizedBox(height: 8),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.comment),
-                    onPressed: () => showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                       builder: (context) => Padding(
-                        padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(context).viewInsets.bottom, // Đẩy UI lên khi bàn phím mở
-                        ),
-                        child: _buildCommentSection(),
-                      ),
+                ),
+
+                // Hiển thị hình ảnh (
+                if (post.imageUrls != null && post.imageUrls!.isNotEmpty)
+                  Center(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: post.imageUrls!.map((imageUrl) {
+                        return buildImagePreview(context, imageUrl);
+                      }).toList(),
                     ),
                   ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildCommentSection() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Danh sách bình luận 
-         widget.post.comments.isEmpty
-            ? const Text("Chưa có bình luận nào.")
-            : ListView(
-                shrinkWrap: true,
-                children: widget.post.comments.map((comment) {
-                  List<String> parts = comment.split(': ');
-                  String email = parts.isNotEmpty ? parts[0] : 'Ẩn danh';
-                  String content = parts.length > 1 ? parts.sublist(1).join(': ') : '';
+                // Hiển thị video
+                if (post.videoUrl != null)
+                  buildVideoPreview(context, post.videoUrl!),
 
-                  return ListTile(
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          email,
-                          style: TextStyle(fontSize: 12), 
-                        ),
-                        Text(
-                          content,
-                          style: TextStyle(fontSize: 16), 
-                        ),
-                        Divider(),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16),
+                  child: Column(
+                    children: [
+                      // Hiển thị âm thanh (nếu có)
+                      if (post.voiceChatUrl != null)
+                        _buildAudioPreview(post.voiceChatUrl!),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            formatTimestamp(post.timestamp.toDate()),
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.grey),
+                          ),
 
-          //Comment
-          SingleChildScrollView(
-            reverse: true,
-            child: TextField(
-              controller: _commentController,
-              decoration: InputDecoration(
-                labelText: "Viết bình luận...",
-                suffixIcon: IconButton(
-                  icon: isCommenting ? CircularProgressIndicator() : const Icon(Icons.send),
-                  onPressed: isCommenting ? null : addComment, //ko cho nhấn lúc gửi
+                          // Like Section
+                          InkWell(
+                            onTap: toggleLike,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.transparent,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    "$likeCount",
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color.fromARGB(255, 226, 229, 233),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    isLiked
+                                        ? Icons.thumb_up
+                                        : Icons.thumb_up_off_alt,
+                                    color: isLiked ? Colors.blue : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    "Thích",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Color.fromARGB(255, 226, 229, 233),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Comment Section
+                          InkWell(
+                            onTap: () => showModalBottomSheet(
+                              backgroundColor: Color.fromARGB(255, 37, 39, 40),
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              builder: (context) => StatefulBuilder(
+                                builder: (context, setModalState) {
+                                  return DraggableScrollableSheet(
+                                    initialChildSize: 1,
+                                    minChildSize: 0.4,
+                                    maxChildSize: 1,
+                                    expand: false,
+                                    builder: (context, scrollController) {
+                                      return buildCommentSection(
+                                        post,
+                                        context,
+                                        isCommenting: isCommenting.value,
+                                        controller: _commentController,
+                                        isLiked: isLiked,
+                                        likeCount: likeCount,
+                                        addComment: addComment,
+                                        scrollController: scrollController,
+                                        toggleLike: () {
+                                          toggleLike();
+                                          setModalState(() {}); //
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.transparent,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.comment,
+                                      color: Color.fromARGB(214, 226, 229, 233),
+                                      size: 20),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    "Bình luận",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Color.fromARGB(255, 226, 229, 233),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Widget hiển thị ảnh từ URL
-  Widget _buildImagePreview(BuildContext context, String imageUrl) {
-    return GestureDetector(
-      onTap: () {
-        _showFullScreenImage(context, imageUrl);
-      },
-      child: Image.network(
-        imageUrl,
-        width: MediaQuery.of(context).size.width * 0.8,
-        height: MediaQuery.of(context).size.height * 0.5,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const Center(child: CircularProgressIndicator());
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return const Icon(Icons.error, color: Colors.red);
-        },
-      ),
-    );
-  }
-
-  /// Hiển thị ảnh phóng to
-  void _showFullScreenImage(BuildContext context, String imageUrl) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: InteractiveViewer(
-              panEnabled: true,
-              boundaryMargin: const EdgeInsets.all(20),
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Image.network(imageUrl),
+              ],
             ),
           ),
         );
       },
     );
   }
-
-  /// Widget hiển thị video từ URL
-  Widget _buildVideoPreview(String videoUrl) {
-    return Container(
-      width: double.infinity, 
-      constraints: const BoxConstraints(
-        maxHeight: 250, 
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12), 
-        child: VideoPlayerWidget(videoUrl: videoUrl),
-      ),
-    );
-  }
-
 
   /// Widget hiển thị âm thanh từ URL
   Widget _buildAudioPreview(String audioUrl) {
     return AudioPlayerWidget(audioUrl: audioUrl);
   }
 }
-
-///Hiện thị video
-class VideoPlayerWidget extends StatefulWidget {
-  final String videoUrl;
-  const VideoPlayerWidget({Key? key, required this.videoUrl}) : super(key: key);
-
-  @override
-  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.network(widget.videoUrl)
-      ..initialize().then((_) {
-        setState(() {});
-      });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _controller.value.isInitialized
-        ? ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  VideoPlayer(_controller),
-                  IconButton(
-                    icon: Icon(
-                      _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _controller.value.isPlaying ? _controller.pause() : _controller.play();
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-          )
-        : const Center(child: CircularProgressIndicator());
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-}
-
 
 /// Widget để phát âm thanh từ URL
 class AudioPlayerWidget extends StatefulWidget {
@@ -359,7 +289,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         const Icon(Icons.audiotrack, size: 30),
         const SizedBox(width: 8),
         Text(
-          "🎵 Tệp âm thanh",
+          "Tệp âm thanh",
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         IconButton(

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:my_app/components/group/homepage/groupPostCard.dart';
 import 'package:my_app/components/group/homepage/groupSelectionWidget.dart';
-import 'package:my_app/components/group/homepage/inputArea.dart';
-import 'package:my_app/screens/creatPostScreen.dart';
+import 'package:my_app/components/group/homepage/groupVideoCard.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:my_app/services/group/groupService.dart';
 import 'package:my_app/model/group/posting.dart';
@@ -11,26 +9,23 @@ import 'package:provider/provider.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'dart:io';
 
-class HomePage extends StatefulWidget {
+class ReelScreen extends StatefulWidget {
   final ValueNotifier<String?> selectedGroupId;
   final Stream<List<DocumentSnapshot>> postStream;
   final ValueNotifier<List<Map<String, dynamic>>> userGroups;
-  final ScrollController scrollController;
-  final ValueNotifier<bool> showNavBar;
-  const HomePage(
-      {Key? key,
-      required this.selectedGroupId,
-      required this.postStream,
-      required this.userGroups,
-      required this.scrollController,
-      required this.showNavBar})
-      : super(key: key);
+
+  const ReelScreen({
+    Key? key,
+    required this.selectedGroupId,
+    required this.postStream,
+    required this.userGroups,
+  }) : super(key: key);
 
   @override
-  _HomePageState createState() => _HomePageState();
+  _ReelScreenState createState() => _ReelScreenState();
 }
 
-class _HomePageState extends State<HomePage>
+class _ReelScreenState extends State<ReelScreen>
     with AutomaticKeepAliveClientMixin {
   final GroupService _groupService = GroupService();
   final GroupPostingService _groupPostingService = GroupPostingService();
@@ -47,7 +42,6 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
-    widget.scrollController.dispose();
     super.dispose();
   }
 
@@ -141,32 +135,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _openCreatePostScreen() async {
-    bool? result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CreatePostScreen(
-          onCreatePost:
-              (String content, List<File> images, List<File> videos) async {
-            await _groupPostingService.createPost(
-              widget.selectedGroupId.value!,
-              content,
-              images: images,
-              videos: videos,
-              voices: selectedVoices,
-            );
-          },
-        ),
-      ),
-    );
-
-    if (result == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Bài đăng đã được tạo thành công!")),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -208,66 +176,36 @@ class _HomePageState extends State<HomePage>
                             }
 
                             final posts = snapshot.data!
-                                .map((doc) => GroupPostCard(
-                                      post: Posting.fromMap(
-                                          doc.data() as Map<String, dynamic>),
+                                .map((doc) => Posting.fromMap(
+                                    doc.data() as Map<String, dynamic>))
+                                .where((post) =>
+                                    post.videoUrl != null &&
+                                    post.videoUrl!.isNotEmpty)
+                                .map((post) => GroupVideoCard(
+                                      post: post,
                                       postService: _groupPostingService,
                                     ))
                                 .toList();
 
-                            return ListView(
-                              controller: widget.scrollController,
-                              cacheExtent: 10000,
-                              children: [
-                                ValueListenableBuilder<bool>(
-                                  valueListenable: widget.showNavBar,
-                                  builder: (context, showNavBarValue, child) {
-                                    return AnimatedPadding(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      padding: EdgeInsets.only(
-                                        top: showNavBarValue ? 40 : 0,
-                                      ),
-                                      child: InputAreaWidget(
-                                        onTap: _openCreatePostScreen,
-                                      ),
-                                    );
-                                  },
-                                ),
-                                ...posts,
-                              ],
+                            return PageView.builder(
+                              scrollDirection: Axis.vertical,
+                              itemCount: posts.length,
+                              itemBuilder: (context, index) {
+                                return Container(
+                                  width: MediaQuery.of(context).size.width,
+                                  height: MediaQuery.of(context).size.height,
+                                  color: Colors.black, 
+                                  child: Center(
+                                    child: posts[index],
+                                  ),
+                                );
+                              },
                             );
                           },
                         ),
                 ),
               ],
             ),
-          ),
-          ValueListenableBuilder<bool>(
-            valueListenable: widget.showNavBar,
-            builder: (context, show, child) {
-              return AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                bottom: show ? 100 : -100,
-                right: 20,
-                child: GestureDetector(
-                  onTap: _openCreatePostScreen,
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Color.fromARGB(255, 218, 231, 243),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                  ),
-                ),
-              );
-            },
           ),
         ],
       ),
