@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class StoreService {
 
   static Future<List<Map<String, dynamic>>> fetchStoresData() async {
-    final response = await http.get(Uri.parse('http://172.19.200.122:4000/store/getall'));
+    final response = await http.get(Uri.parse('https://server-holy-breeze-594.fly.dev/store/getall'));
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(json.decode(response.body));
     } else {

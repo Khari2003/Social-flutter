@@ -13,14 +13,16 @@ import '../widgets/flutterMapWidget.dart';
 import '../widgets/searchStoreWidget.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final String? selectedGroupId;
+
+  const MapScreen({Key? key, this.selectedGroupId}) : super(key: key);
 
   @override
   // ignore: library_private_types_in_public_api
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,AutomaticKeepAliveClientMixin {
   LatLng? currentLocation;
   List<Map<String, dynamic>> allStores = [];
   List<Map<String, dynamic>> traffic = [];
@@ -37,7 +39,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   String routeType = 'driving';
   AnimationController? _animationController;
   LatLng? searchedLocation;
-
+  bool get wantKeepAlive => true;
+  @override
   @override
   void initState() {
     super.initState();
@@ -237,6 +240,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: GestureDetector(
         onTap: () {
@@ -264,12 +268,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       });
                     },
                     searchedLocation: searchedLocation,
-                    groupId: "GROUP_ID_HERE",
+                    groupId: widget.selectedGroupId ?? "defaultGroupId",
                   ),  
                   // Nút tìm kiếm địa chỉ
                   Positioned(
                     top: 16.0,
-                    left: 16.0,
+                    right: 16.0,
                     child: FloatingActionButton(
                       onPressed: () async {
                         final result = await Navigator.push(

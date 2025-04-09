@@ -9,7 +9,7 @@ import 'dart:convert';
 class GroupChatService extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
-  final String apiEndpoint = "http://192.168.0.100:5000/upload"; 
+  final String apiEndpoint = "http://192.168.1.200:5000/upload"; 
 
   /// Upload ảnh lên Cloudinary
   Future<List<String>> _uploadImages(List<File> images) async {

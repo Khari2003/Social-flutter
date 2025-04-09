@@ -1,162 +1,91 @@
-import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
-import '../home_page.dart';
-import 'signup_page.dart';
 
-class LoginDemo extends StatefulWidget {
-  @override
-  _LoginDemoState createState() => _LoginDemoState();
+import 'package:flutter/material.dart';
+import 'package:my_app/services/auth/authService.dart';
+import 'package:provider/provider.dart';
+import '../../components/textField.dart';
+import '../../components/button.dart';
+class LoginScreen extends StatefulWidget {
+    final void Function()? onTap;
+    const LoginScreen({super.key, required this.onTap});
+    @override
+    State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginDemoState extends State<LoginDemo> {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  bool _isLoading = false;
+class _LoginScreenState extends State<LoginScreen> {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
 
-  Future<void> _login() async {
-    String email = emailController.text;
-    String password = passwordController.text;
-
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vui lòng điền đầy đủ thông tin.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final success = await ApiService.login(email, password);
-      if (success) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (_) => HomePage()), // Navigate to MainScreen
-        );
-      } else {
+    //sign in user
+    void signIn () async {
+      final authService = Provider.of<Authservice>(context, listen: false);
+      try{
+        await authService.signInWithEmailAndPassword(emailController.text, passwordController.text);
+      } catch (e){
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Thông tin đăng nhập không hợp lệ.')),
-        );
-      }
-    } catch (e) {
-      Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (_) => HomePage()), // Navigate to MainScreen
-        );
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(content: Text('Có lỗi xảy ra, vui lòng thử lại.')),
-      // );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isMobile = screenSize.width < 600;
-
-    return Scaffold(
-      body: Container(
-        height: screenSize.height,
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('../assets/background3.jpg'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 20 : 50),
-            child: Column(
-              children: <Widget>[
-                SizedBox(height: screenSize.height * 0.1),
-                Center(
-                  child: Container(
-                    width: isMobile ? 150 : 200,
-                    height: isMobile ? 100 : 150,
-                    child: Image.asset('../assets/logo.jpg'),
-                  ),
-                ),
-                SizedBox(height: screenSize.height * 0.05),
-                TextField(
-                  controller: emailController,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Nhập ID email hợp lệ là abc@gmail.com',
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 15),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Nhập mật khẩu an toàn',
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    // TODO: Navigate to password recovery screen
-                  },
-                  child: Text(
-                    'Quên mật khẩu',
-                    style: TextStyle(color: Colors.blue, fontSize: 15),
-                  ),
-                ),
-                SizedBox(height: 20),
-                Container(
-                  height: 50,
-                  width: isMobile ? screenSize.width * 0.8 : 250,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                    ),
-                    child: _isLoading
-                        ? CircularProgressIndicator(
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white))
-                        : Text(
-                            'Đăng nhập',
-                            style: TextStyle(color: Colors.white, fontSize: 25),
-                          ),
-                  ),
-                ),
-                SizedBox(height: 20),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => SignupPage()),
-                    );
-                  },
-                  child: Text(
-                    'Người dùng mới? Tạo tài khoản',
-                    style: TextStyle(color: Colors.blue, fontSize: 15),
-                  ),
-                ),
-                SizedBox(height: 130),
-              ],
+          SnackBar(
+            content: Text(
+              e.toString(),
             ),
           ),
-        ),
-      ),
-    );
-  }
+        );
+      }
+    }
+    @override
+    Widget build(BuildContext context) {
+        return Scaffold(
+            backgroundColor: Colors.grey.shade200,
+            body: SafeArea(
+                child: Center(
+                    child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                        child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children:[
+                                const SizedBox(height: 50),
+                                //logo
+                                // Icon(
+                                //     Icons.message,
+                                //     size: 80
+                                // ),
+                                //message
+                                Text(
+                                    'Đăng nhặp',
+                                    style: TextStyle(
+                                        fontSize: 16
+                                    ),
+                                ),
+                                const SizedBox(height: 50),
+                                //email
+                                MyTextField(controller: emailController, hintText: 'Email', obscureText: false),
+                                const SizedBox(height: 25),
+                                //password
+                                MyTextField(controller: passwordController, hintText: 'Password', obscureText: true),
+                                const SizedBox(height: 50),
+                                //signin button
+                                CustomButton(onTap:signIn, text: 'Đăng nhập'),
+                                const SizedBox(height: 50),
+                                //register
+                                Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                        const Text('Không có tài khoản?'),
+                                        const SizedBox(width: 4),
+                                        GestureDetector(
+                                            onTap: widget.onTap,
+                                            child : const Text(
+                                                'Đăng ký ngay!',
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold
+                                                )
+                                            ),
+                                        ),
+                                    ]
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        );
+    }
 }
