@@ -46,6 +46,24 @@ class Authservice extends ChangeNotifier {
     }
   }
 
+
+   Future<String?> getEmailById(String userId) async {
+    try {
+      DocumentSnapshot userDoc = await _fireStore.collection('users').doc(userId).get();
+      
+      if (userDoc.exists) {
+        // Cast the data to a Map<String, dynamic>
+        Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
+        return data?['email'] as String?;
+      } else {
+        return null; // User not found
+      }
+    } catch (e) {
+      throw Exception("Error fetching email: $e");
+    }
+  }
+
+
   // Lấy vị trí người dùng
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;

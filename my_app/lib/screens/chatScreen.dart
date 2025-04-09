@@ -36,18 +36,24 @@ class _ChatScreenState extends State<ChatScreen> {
   final ImagePicker _picker = ImagePicker();
   final AudioPlayer _audioPlayer = AudioPlayer();
   FlutterSoundRecorder _recorder = FlutterSoundRecorder();
+  final ScrollController _scrollController = ScrollController();
   List<File> _selectedImages = [];
   List<File> _voiceFiles = [];
   bool isRecording = false;
   String? _audioPath;
 
-
   void sendMessage() async {
-    if (_messageController.text.isNotEmpty || _selectedImages.isNotEmpty || _voiceFiles.isNotEmpty) {
+    if (_messageController.text.isNotEmpty ||
+        _selectedImages.isNotEmpty ||
+        _voiceFiles.isNotEmpty) {
       if (widget.type == "group") {
-        await _chatService.sendGroupMessage(widget.GroupId, _messageController.text, images: _selectedImages, voices: _voiceFiles);
+        await _chatService.sendGroupMessage(
+            widget.GroupId, _messageController.text,
+            images: _selectedImages, voices: _voiceFiles);
       } else if (widget.type == "private") {
-        await _chatService.sendPrivateMessage(widget.GroupId, widget.receiverUserID, _messageController.text, images: _selectedImages, voices: _voiceFiles);
+        await _chatService.sendPrivateMessage(
+            widget.GroupId, widget.receiverUserID, _messageController.text,
+            images: _selectedImages, voices: _voiceFiles);
       }
       _messageController.clear();
       setState(() {
@@ -73,10 +79,11 @@ class _ChatScreenState extends State<ChatScreen> {
         await _recorder.openRecorder();
         setState(() => isRecording = true);
         final dir = await getApplicationDocumentsDirectory();
-        _audioPath = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.aac';
+        _audioPath =
+            '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.aac';
         await _recorder.startRecorder(toFile: _audioPath);
       } else {
-        print("❌ Quyền ghi âm bị từ chối!");
+        print("Quyền ghi âm bị từ chối!");
       }
     } else {
       await _recorder.stopRecorder();
@@ -98,14 +105,13 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.receiverUserEmail)),
       body: Column(
         children: [
-          Expanded(child: _buildMessageList()),
+          Expanded(child: _buildMessageList()), // Hiện tin nhắn
           if (_selectedImages.isNotEmpty) _buildImagePreview(),
           if (_voiceFiles.isNotEmpty) _buildVoicePreview(),
           _buildMessageInput(),
@@ -115,65 +121,84 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  //Message List
   Widget _buildMessageList() {
     Stream<QuerySnapshot> messageStream = widget.type == "group"
         ? _chatService.getGroupMessages(widget.GroupId)
-        : _chatService.getPrivateMessages(widget.GroupId, _firebaseAuth.currentUser!.uid, widget.receiverUserID);
+        : _chatService.getPrivateMessages(widget.GroupId,
+            _firebaseAuth.currentUser!.uid, widget.receiverUserID);
 
     return StreamBuilder<QuerySnapshot>(
       stream: messageStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) return Text('Error: ${snapshot.error}');
-        if (snapshot.connectionState == ConnectionState.waiting) return const Text('Loading...');
-        return ListView(
-          children: snapshot.data!.docs.map((doc) => _buildMessageItem(doc)).toList(),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return const Text('Loading...');
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom(); 
+        });
+
+        return ListView.builder(
+          controller: _scrollController, 
+          itemCount: snapshot.data!.docs.length,
+          itemBuilder: (context, index) {
+            return _buildMessageItem(snapshot.data!.docs[index]);
+          },
         );
       },
     );
   }
 
-  //Message Item
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
+  }
+
   Widget _buildMessageItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-    var alignment = (data['senderId'] == _firebaseAuth.currentUser!.uid) ? Alignment.centerRight : Alignment.centerLeft;
+    var alignment = (data['senderId'] == _firebaseAuth.currentUser!.uid)
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
+
     return Container(
       alignment: alignment,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          crossAxisAlignment: (data['senderId'] == _firebaseAuth.currentUser!.uid) ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              (data['senderId'] == _firebaseAuth.currentUser!.uid)
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
           children: [
             Text(data['senderEmail']),
-            if (data['voiceChatUrl'] != null) 
+            if (data['voiceChatUrl'] != null)
               IconButton(
                 icon: Icon(Icons.play_arrow),
                 onPressed: () async {
                   await _audioPlayer.play(UrlSource(data['voiceChatUrl']));
                 },
               ),
-            if (data['imageUrls'] != null) ...data['imageUrls'].map<Widget>((url) => 
-              GestureDetector(
-                  onTap: () {
-                    _showFullScreenImage(context, url);
-                  },
-                  child: Image.network(
-                    url,
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    height: MediaQuery.of(context).size.height * 0.5,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(child: CircularProgressIndicator());
+            if (data['imageUrls'] != null)
+              ...data['imageUrls'].map<Widget>((url) => GestureDetector(
+                    onTap: () {
+                      _showFullScreenImage(context, url);
                     },
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.error, color: Colors.red);
-                    },
-                  ),
-                )
-              ),
-            if (data['message'] != '') 
-              ChatBubble(message: data['message']),
+                    child: Image.network(
+                      url,
+                      width: MediaQuery.of(context).size.width * 0.8,
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(child: CircularProgressIndicator());
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.error, color: Colors.red);
+                      },
+                    ),
+                  )),
+            if (data['message'] != '') ChatBubble(message: data['message']),
           ],
         ),
       ),
@@ -211,7 +236,8 @@ class _ChatScreenState extends State<ChatScreen> {
           padding: const EdgeInsets.all(4.0),
           child: Stack(
             children: [
-              Image.file(_selectedImages[index], width: 80, height: 80, fit: BoxFit.cover),
+              Image.file(_selectedImages[index],
+                  width: 80, height: 80, fit: BoxFit.cover),
               Positioned(
                 right: 0,
                 top: 0,
@@ -248,7 +274,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 IconButton(
                   icon: Icon(Icons.play_arrow, color: Colors.blue),
                   onPressed: () async {
-                    await _audioPlayer.play(DeviceFileSource(_voiceFiles[index].path));
+                    await _audioPlayer
+                        .play(DeviceFileSource(_voiceFiles[index].path));
                   },
                 ),
                 IconButton(
@@ -267,7 +294,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-
   Widget _buildMessageInput() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15.0),
@@ -277,7 +303,8 @@ class _ChatScreenState extends State<ChatScreen> {
           onPressed: pickImages,
         ),
         IconButton(
-          icon: Icon(isRecording ? Icons.mic : Icons.mic_none, color: isRecording ? Colors.red : Colors.grey),
+          icon: Icon(isRecording ? Icons.mic : Icons.mic_none,
+              color: isRecording ? Colors.red : Colors.grey),
           onPressed: _toggleRecording,
         ),
         Expanded(

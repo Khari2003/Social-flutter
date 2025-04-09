@@ -7,8 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class StoreService {
 
   static Future<List<Map<String, dynamic>>> fetchStoresData() async {
-    final String? ipStore = dotenv.env['IP'];
-    final response = await http.get(Uri.parse('http://$ipStore:4000/store/getall'));
+    final response = await http.get(Uri.parse('https://server-holy-breeze-594.fly.dev/store/getall'));
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(json.decode(response.body));
     } else {
