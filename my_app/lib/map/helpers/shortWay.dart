@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
-// Hàm lấy tuyến đường dành riêng cho mapScreen
 Future<List<LatLng>> getRouteForMapScreen(
   LatLng origin, 
   LatLng destination, 

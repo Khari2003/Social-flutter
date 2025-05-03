@@ -5,7 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import '../helpers/shortWay.dart';
 
 class RouteService {
-  // Hàm lấy tuyến đường với tham số dành riêng cho mapScreen
+
   static Future<List<LatLng>> fetchRouteForMapScreen(
       LatLng currentLocation, LatLng destination, String routeType) async {
     // Xác định kiểu tuyến đường dựa trên routeType ('driving' hoặc 'walking')

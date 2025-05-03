@@ -36,7 +36,7 @@ class StoreListWidget extends StatelessWidget {
                   child: Icon(Icons.arrow_forward_ios),
                 ),
                 onTap: () {
-                  onSelectStore(coordinates); // Gọi hàm để báo về MapScreen
+                  onSelectStore(coordinates); 
                 },
               ),
               if (index < stores.length - 1) Divider(), // Thêm Divider nếu không phải item cuối
