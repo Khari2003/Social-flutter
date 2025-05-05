@@ -12,7 +12,7 @@ class LocationService {
     // Check if location services are enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return null;
+      return LatLng(21.0278, 105.8342);
     }
 
     // Check location permissions
@@ -20,12 +20,12 @@ class LocationService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return null;
+        return LatLng(21.0278, 105.8342);
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return null;
+      return LatLng(21.0278, 105.8342);
     }
 
     // Get the current position
@@ -35,7 +35,7 @@ class LocationService {
       );
       return LatLng(position.latitude, position.longitude);
     } catch (e) {
-      return null;
+      return LatLng(21.0278, 105.8342);
     }
   }
 

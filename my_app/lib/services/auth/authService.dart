@@ -46,8 +46,7 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-
-   Future<String?> getEmailById(String userId) async {
+  Future<String?> getEmailById(String userId) async {
     try {
       DocumentSnapshot userDoc = await _fireStore.collection('users').doc(userId).get();
       
@@ -62,7 +61,6 @@ class Authservice extends ChangeNotifier {
       throw Exception("Error fetching email: $e");
     }
   }
-
 
   // Lấy vị trí người dùng
   Future<Position?> _determinePosition() async {
@@ -124,5 +122,25 @@ class Authservice extends ChangeNotifier {
 
   Future<void> signOut() async {
     return await FirebaseAuth.instance.signOut();
+  }
+
+  // Lấy tất cả user từ Firestore
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      // Truy cập collection 'users'
+      QuerySnapshot querySnapshot = await _fireStore.collection('users').get();
+      
+      // Chuyển các document thành danh sách Map
+      List<Map<String, dynamic>> usersList = querySnapshot.docs.map((doc) {
+        return {
+          'uid': doc.id, // Lấy UID của user
+          ...doc.data() as Map<String, dynamic>, // Lấy dữ liệu của user
+        };
+      }).toList();
+
+      return usersList;
+    } catch (e) {
+      throw Exception("Error fetching users: $e");
+    }
   }
 }

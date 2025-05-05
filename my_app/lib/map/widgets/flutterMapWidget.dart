@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_compass/flutter_compass.dart';
-import 'package:my_app/services/group/groupService.dart';
+import 'package:my_app/services/auth/authService.dart';
 import 'dart:async';
 import '../utils/buildMarkers.dart';
 import '../utils/dashPolyline.dart';
@@ -20,7 +20,6 @@ class FlutterMapWidget extends StatefulWidget {
   final String routeType;
   final Function(Map<String, dynamic>) onStoreTap;
   final LatLng? searchedLocation;
-  final String groupId;
 
   const FlutterMapWidget({
     required this.mapController,
@@ -34,7 +33,6 @@ class FlutterMapWidget extends StatefulWidget {
     required this.routeType,
     required this.onStoreTap,
     this.searchedLocation,
-    required this.groupId,
     super.key,
   });
 
@@ -65,14 +63,20 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
 
   Future<void> _fetchMemberLocations() async {
     try {
-      List<Map<String, dynamic>> members = 
-          await GroupService().getGroupMemberLocations(widget.groupId);
+      List<Map<String, dynamic>> users = await Authservice().getAllUsers();
       
       setState(() {
-        memberLocations = members.map((m) => LatLng(m['lat'], m['lng'])).toList();
+        memberLocations = users.map((u) {
+          // Kiểm tra kỹ giá trị của location
+          var location = u['location'];
+          if (location is Map<String, dynamic> && u['isAllowedLocation'] == true) {
+            return LatLng(location['lat'] as double, location['lng'] as double);
+          }
+          return null;
+        }).whereType<LatLng>().toList();
       });
     } catch (e) {
-      print("Error fetching member locations: $e");
+      print("Error fetching user locations: $e");
     }
   }
 
