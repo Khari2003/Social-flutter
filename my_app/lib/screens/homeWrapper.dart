@@ -53,7 +53,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
 
   void _onScroll() {
     if (_scrollController.offset > _lastOffset &&
-        _scrollController.offset > 100) {
+        _scrollController.offset > 50) {
       if (_showNavBar.value) {
         setState(() {
           _showNavBar.value = false;

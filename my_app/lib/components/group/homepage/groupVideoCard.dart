@@ -11,9 +11,11 @@ class GroupVideoCard extends StatefulWidget {
   final Posting post;
   final GroupPostingService postService;
 
-  const GroupVideoCard(
-      {Key? key, required this.post, required this.postService})
-      : super(key: key);
+  const GroupVideoCard({
+    Key? key,
+    required this.post,
+    required this.postService,
+  }) : super(key: key);
 
   @override
   _GroupVideoCardState createState() => _GroupVideoCardState();
@@ -32,6 +34,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   @override
   bool get wantKeepAlive => true;
 
+  @override
   void initState() {
     super.initState();
     _fetchEmail();
@@ -39,8 +42,6 @@ class _GroupVideoCardState extends State<GroupVideoCard>
       ..initialize().then((_) {
         setState(() {});
         _controller.play();
-
-        // Lắng nghe thời gian chạy
         _controller.addListener(() {
           if (!_isSeeking && _controller.value.isInitialized) {
             setState(() {
@@ -64,7 +65,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
 
   void addComment() async {
     if (_commentController.text.isNotEmpty && !isCommenting.value) {
-      isCommenting.value = true; // Bắt đầu gửi bình luận
+      isCommenting.value = true;
       try {
         await widget.postService.addComment(
           widget.post.groupId,
@@ -74,7 +75,12 @@ class _GroupVideoCardState extends State<GroupVideoCard>
         widget.post.comments.add(_commentController.text);
         _commentController.clear();
       } catch (e) {
-        print("Lỗi khi gửi bình luận: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Lỗi khi gửi bình luận: $e', style: const TextStyle(color: Colors.white)),
+          ),
+        );
       } finally {
         isCommenting.value = false;
       }
@@ -85,7 +91,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
     String? fetchedEmail = await auth.getEmailById(widget.post.userId);
     setState(() {
       email = fetchedEmail;
-      email = email!.contains('@') ? email!.split('@')[0] : email;
+      email = email != null && email!.contains('@') ? email!.split('@')[0] : email ?? 'Ẩn danh';
     });
   }
 
@@ -121,7 +127,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
           child: Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             clipBehavior: Clip.none,
-            color: Colors.black87,
+            color: const Color(0xFF2A2A2A),
             child: SizedBox.expand(
               child: Stack(
                 children: [
@@ -132,39 +138,40 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                       controller: _controller,
                     ),
                   ),
+
                   Positioned(
-                    bottom: screenSize.height * 0.2,
-                    right: screenSize.width * 0.01,
+                    right: 8,
+                    bottom: 40, 
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          onPressed: () => toggleLike(),
+                          onPressed: toggleLike,
                           icon: Icon(
-                            isLiked ? Icons.thumb_up : Icons.favorite_border,
-                            color: isLiked ? Colors.blue : Colors.white,
+                            isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
+                            color: isLiked ? Colors.blueAccent : Colors.grey[500],
+                            size: buttonSize,
                           ),
-                          iconSize: buttonSize,
                         ),
                         Text(
-                          likeCount.toString(),
-                          style: const TextStyle(color: Colors.white),
+                          likeCount > 0 ? '$likeCount' : '0',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
-                        const SizedBox(height: 20),
-                        InkWell(
-                          onTap: () => showModalBottomSheet(
-                            backgroundColor: Color.fromARGB(255, 37, 39, 40),
+                        const SizedBox(height: 12),
+                        IconButton(
+                          onPressed: () => showModalBottomSheet(
+                            backgroundColor: const Color(0xFF3A3A3A),
                             context: context,
                             isScrollControlled: true,
                             shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.zero,
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                             ),
                             builder: (context) => StatefulBuilder(
                               builder: (context, setModalState) {
                                 return DraggableScrollableSheet(
-                                  initialChildSize: 0.8,
+                                  initialChildSize: 0.7,
                                   minChildSize: 0.4,
-                                  maxChildSize: 0.8,
+                                  maxChildSize: 0.9,
                                   expand: false,
                                   builder: (context, scrollController) {
                                     return buildCommentSection(
@@ -179,7 +186,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                                       scrollController: scrollController,
                                       toggleLike: () {
                                         toggleLike();
-                                        setModalState(() {}); //
+                                        setModalState(() {});
                                       },
                                     );
                                   },
@@ -187,73 +194,79 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                               },
                             ),
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.transparent,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.mode_comment_outlined,
-                                  color: Colors.white,
-                                  size: buttonSize,
-                                ),
-                              ],
-                            ),
+                          icon: Icon(
+                            Icons.mode_comment_outlined,
+                            color: Colors.grey[500],
+                            size: buttonSize,
                           ),
+                        ),
+                        Text(
+                          widget.post.comments.isNotEmpty ? '${widget.post.comments.length}' : '0',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        ),
+                        const SizedBox(height: 12),
+                        IconButton(
+                          icon: Icon(Icons.share, color: Colors.grey[500], size: buttonSize),
+                          onPressed: null,
+                        ),
+                        const SizedBox(height: 12),
+                        IconButton(
+                          icon: Icon(Icons.bookmark_border, color: Colors.grey[500], size: buttonSize),
+                          onPressed: null,
                         ),
                       ],
                     ),
                   ),
+                  // Email và nội dung
                   Positioned(
-                    bottom: 20,
-                    left: 20,
+                    top: 16,
+                    left: 12,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          email ?? '...',
-                          style: TextStyle(
+                          email ?? 'Ẩn danh',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 4),
                         SizedBox(
-                          width: screenSize.width,
+                          width: screenSize.width * 0.7,
                           child: Text(
                             widget.post.content,
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
+                              color: Colors.grey[300],
+                              fontSize: 14,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            maxLines: 2,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  // Thanh slider
                   Positioned(
-                    bottom: -20,
-                    left: 0,
-                    right: 0,
+                    bottom: 8,
+                    left: 12,
+                    right: 12,
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 3),
+                        thumbShape: RoundSliderThumbShape(
+                          enabledThumbRadius: _isSeeking ? 6 : 0,
+                        ),
+                        trackHeight: 2,
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                       ),
                       child: Slider(
                         min: 0.0,
-                        max: _controller.value.duration.inMilliseconds
-                            .toDouble(),
+                        max: _controller.value.duration.inMilliseconds.toDouble(),
                         value: _isSeeking
                             ? _videoPosition
-                            : _controller.value.position.inMilliseconds
-                                .toDouble(),
+                            : _controller.value.position.inMilliseconds.toDouble(),
                         onChanged: (value) {
                           setState(() {
                             _isSeeking = true;
@@ -266,8 +279,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                             _isSeeking = false;
                           });
                         },
-                        activeColor: Colors.white,
-                        inactiveColor: Colors.grey,
+                        activeColor: Colors.blueAccent,
+                        inactiveColor: Colors.grey[700],
                       ),
                     ),
                   ),

@@ -108,14 +108,26 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.receiverUserEmail)),
+      backgroundColor: const Color(0xFF1A1A1A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF2A2A2A),
+        elevation: 0,
+        title: Text(
+          widget.receiverUserEmail,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
       body: Column(
         children: [
-          Expanded(child: _buildMessageList()), // Hiện tin nhắn
+          Expanded(child: _buildMessageList()),
           if (_selectedImages.isNotEmpty) _buildImagePreview(),
           if (_voiceFiles.isNotEmpty) _buildVoicePreview(),
           _buildMessageInput(),
-          const SizedBox(height: 25),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -130,16 +142,27 @@ class _ChatScreenState extends State<ChatScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: messageStream,
       builder: (context, snapshot) {
-        if (snapshot.hasError) return Text('Error: ${snapshot.error}');
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return const Text('Loading...');
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text(
+              'Error loading messages',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.blueAccent),
+          );
+        }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom(); 
+          _scrollToBottom();
         });
 
         return ListView.builder(
-          controller: _scrollController, 
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             return _buildMessageItem(snapshot.data!.docs[index]);
@@ -151,56 +174,121 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
   Widget _buildMessageItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-    var alignment = (data['senderId'] == _firebaseAuth.currentUser!.uid)
-        ? Alignment.centerRight
-        : Alignment.centerLeft;
+    var isSender = data['senderId'] == _firebaseAuth.currentUser!.uid;
 
     return Container(
-      alignment: alignment,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment:
-              (data['senderId'] == _firebaseAuth.currentUser!.uid)
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-          children: [
-            Text(data['senderEmail']),
-            if (data['voiceChatUrl'] != null)
-              IconButton(
-                icon: Icon(Icons.play_arrow),
-                onPressed: () async {
-                  await _audioPlayer.play(UrlSource(data['voiceChatUrl']));
-                },
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment:
+            isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              data['senderEmail'],
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
-            if (data['imageUrls'] != null)
-              ...data['imageUrls'].map<Widget>((url) => GestureDetector(
-                    onTap: () {
-                      _showFullScreenImage(context, url);
-                    },
-                    child: Image.network(
-                      url,
-                      width: MediaQuery.of(context).size.width * 0.8,
-                      height: MediaQuery.of(context).size.height * 0.5,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(child: CircularProgressIndicator());
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.error, color: Colors.red);
-                      },
-                    ),
-                  )),
-            if (data['message'] != '') ChatBubble(message: data['message']),
-          ],
-        ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment:
+                isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isSender) const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: isSender
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    if (data['voiceChatUrl'] != null)
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            await _audioPlayer
+                                .play(UrlSource(data['voiceChatUrl']));
+                          },
+                          icon: const Icon(Icons.play_arrow, size: 20),
+                          label: const Text('Play Audio'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3A3A3A),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (data['imageUrls'] != null)
+                      ...data['imageUrls'].map<Widget>((url) => GestureDetector(
+                            onTap: () {
+                              _showFullScreenImage(context, url);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.grey[800]!,
+                                  width: 1,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  url,
+                                  width: MediaQuery.of(context).size.width * 0.6,
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.3,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const Center(
+                                        child: CircularProgressIndicator(
+                                      color: Colors.blueAccent,
+                                    ));
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 100,
+                                      color: Colors.grey[800],
+                                      child: const Icon(
+                                        Icons.error,
+                                        color: Colors.redAccent,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          )),
+                    if (data['message'] != '')
+                      ChatBubble(
+                        message: data['message'],
+                        isSender: isSender,
+                      ),
+                  ],
+                ),
+              ),
+              if (isSender) const SizedBox(width: 8),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -213,12 +301,21 @@ class _ChatScreenState extends State<ChatScreen> {
           backgroundColor: Colors.transparent,
           child: GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: InteractiveViewer(
-              panEnabled: true,
-              boundaryMargin: const EdgeInsets.all(20),
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Image.network(imageUrl),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: InteractiveViewer(
+                panEnabled: true,
+                boundaryMargin: const EdgeInsets.all(20),
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ),
         );
@@ -227,17 +324,31 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildImagePreview() {
-    return SizedBox(
+    return Container(
       height: 100,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _selectedImages.length,
         itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.all(4.0),
+          padding: const EdgeInsets.only(right: 8),
           child: Stack(
             children: [
-              Image.file(_selectedImages[index],
-                  width: 80, height: 80, fit: BoxFit.cover),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[800]!, width: 1),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    _selectedImages[index],
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
               Positioned(
                 right: 0,
                 top: 0,
@@ -248,8 +359,16 @@ class _ChatScreenState extends State<ChatScreen> {
                     });
                   },
                   child: Container(
-                    color: Colors.red,
-                    child: Icon(Icons.close, color: Colors.white),
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -261,25 +380,32 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildVoicePreview() {
-    return SizedBox(
-      height: 80,
+    return Container(
+      height: 60,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _voiceFiles.length,
         itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.all(4.0),
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3A3A3A),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: Icon(Icons.play_arrow, color: Colors.blue),
+                  icon: const Icon(Icons.play_arrow, color: Colors.blueAccent),
                   onPressed: () async {
                     await _audioPlayer
                         .play(DeviceFileSource(_voiceFiles[index].path));
                   },
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
                   onPressed: () {
                     setState(() {
                       _voiceFiles.removeAt(index);
@@ -295,30 +421,50 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageInput() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15.0),
-      child: Row(children: [
-        IconButton(
-          icon: Icon(Icons.image),
-          onPressed: pickImages,
-        ),
-        IconButton(
-          icon: Icon(isRecording ? Icons.mic : Icons.mic_none,
-              color: isRecording ? Colors.red : Colors.grey),
-          onPressed: _toggleRecording,
-        ),
-        Expanded(
-          child: MyTextField(
-            controller: _messageController,
-            hintText: "Nhập tin nhắn...",
-            obscureText: false,
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        IconButton(
-          onPressed: sendMessage,
-          icon: const Icon(Icons.arrow_upward, size: 30),
-        ),
-      ]),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.image, color: Colors.grey),
+            onPressed: pickImages,
+          ),
+          IconButton(
+            icon: Icon(
+              isRecording ? Icons.mic : Icons.mic_none,
+              color: isRecording ? Colors.redAccent : Colors.grey,
+            ),
+            onPressed: _toggleRecording,
+          ),
+          Expanded(
+            child: MyTextField(
+              controller: _messageController,
+              hintText: "Type a message...",
+              obscureText: false,
+            ),
+          ),
+          IconButton(
+            onPressed: sendMessage,
+            icon: const Icon(
+              Icons.send,
+              color: Colors.blueAccent,
+              size: 28,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

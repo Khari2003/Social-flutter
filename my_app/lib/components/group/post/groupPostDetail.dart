@@ -164,6 +164,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   const Divider(color: Color.fromARGB(255, 74, 74, 76)),
                   // Nút like + số lượt like
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
                         icon: Icon(
@@ -172,11 +173,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ),
                         onPressed: toggleLike,
                       ),
-                      Text(
-                        "${likeCount} lượt thích",
-                        style: const TextStyle(
-                            fontSize: 14,
-                            color: Color.fromARGB(255, 226, 229, 233)),
+                      // Share Button
+                      IconButton(
+                        icon: Icon(Icons.share, color: Colors.grey[500], size: 22),
+                        onPressed: null,
+                      ),
+                      // Save Button
+                      IconButton(
+                        icon: Icon(Icons.bookmark_border, color: Colors.grey[500], size: 22),
+                        onPressed: null,
                       ),
                     ],
                   ),

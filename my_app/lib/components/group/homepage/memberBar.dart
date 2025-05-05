@@ -21,60 +21,158 @@ class MemberSidebarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.7,
-      color: const Color.fromARGB(47, 0, 0, 0),
+      width: MediaQuery.of(context).size.width * 0.65,
+      color:  Colors.black87,
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 10),
-
-          // Group Tổng (Chat chung)
-          ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.blue,
-              child: Icon(Icons.group, color: Colors.white),
-            ),
-            title: const Text(
-              "Group Tổng",
-              style: const TextStyle(
+          const Padding(
+            padding: EdgeInsets.only(left: 16, bottom: 12),
+            child: Text(
+              'Thành viên',
+              style: TextStyle(
+                color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color.fromARGB(255, 226, 229, 233),
               ),
             ),
-            onTap: onGroupChat,
           ),
-
-          const Divider(),
-
+          // Group Tổng
+          InkWell(
+            onTap: onGroupChat,
+            splashColor: Colors.blueAccent.withOpacity(0.3),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.black87,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.blueAccent,
+                    child: const Icon(Icons.group, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Group Tổng',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(color: Colors.grey, height: 16),
           // Danh sách thành viên
           Expanded(
             child: ListView.builder(
               itemCount: groupMembers.length,
               itemBuilder: (context, index) {
                 final member = groupMembers[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: member["avatar"]!.isNotEmpty
-                        ? NetworkImage(member["avatar"]!)
-                        : null,
-                    child: member["avatar"]!.isEmpty
-                        ? const Icon(Icons.person)
-                        : null,
-                  ),
-                  title: Text(
-                    member["email"]!.contains('@')
-                        ? member["email"]!.split('@')[0] // Lấy phần trước @
-                        : member["email"]!,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 226, 229, 233),
+                final displayName = member["email"]!.contains('@')
+                    ? member["email"]!.split('@')[0]
+                    : member["email"]!;
+                return InkWell(
+                  onTap: () => onPrivateChat(member["id"]!, member["email"]!),
+                  splashColor: Colors.blueAccent.withOpacity(0.3),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundImage: member["avatar"]!.isNotEmpty
+                              ? NetworkImage(member["avatar"]!)
+                              : null,
+                          child: member["avatar"]!.isEmpty
+                              ? const Icon(Icons.person, color: Colors.white, size: 28)
+                              : null,
+                          backgroundColor: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'Online', // Giả lập trạng thái
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  onTap: () => onPrivateChat(member["id"]!, member["email"]!),
                 );
               },
+            ),
+          ),
+          const Divider(color: Colors.grey, height: 16),
+          // Nút hành động
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                InkWell(
+                  onTap: null, // Có thể thêm logic sau
+                  splashColor: Colors.blueAccent.withOpacity(0.3),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_add, color: Colors.grey[500], size: 24),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Thêm thành viên',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: null, // Có thể thêm logic sau
+                  splashColor: Colors.redAccent.withOpacity(0.3),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.exit_to_app, color: Colors.grey[500], size: 24),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Rời nhóm',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

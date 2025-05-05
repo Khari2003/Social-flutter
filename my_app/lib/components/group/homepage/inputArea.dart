@@ -12,13 +12,13 @@ class InputAreaWidget extends StatelessWidget {
         borderRadius: BorderRadius.zero,
       ),
       clipBehavior: Clip.none,
-      color: const Color.fromARGB(255, 37, 40, 40),
+      color: const Color.fromARGB(255, 19, 20, 20),
       child: InkWell(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const  Color.fromARGB(255, 37, 40, 40),
+            color: const Color.fromARGB(255, 19, 20, 20),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(

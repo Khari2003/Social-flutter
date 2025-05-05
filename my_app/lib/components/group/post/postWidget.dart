@@ -171,16 +171,22 @@ void showFullScreenImage(BuildContext context, String imageUrl) {
   showDialog(
     context: context,
     builder: (context) {
+      final size = MediaQuery.of(context).size;
       return Dialog(
         backgroundColor: Colors.transparent,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: InteractiveViewer(
-            panEnabled: true,
-            boundaryMargin: const EdgeInsets.all(20),
-            minScale: 0.5,
-            maxScale: 4.0,
-            child: Image.network(imageUrl),
+        insetPadding: EdgeInsets.zero, // loại bỏ padding mặc định
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(imageUrl, fit: BoxFit.contain),
+            ),
           ),
         ),
       );

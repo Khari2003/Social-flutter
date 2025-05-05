@@ -9,23 +9,23 @@ class PostMessBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Color.fromARGB(255, 74, 74, 76),
+        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFF3A3A3A),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            email, // Hiển thị email người gửi
-            style: const TextStyle(fontSize: 12, color: Color.fromARGB(255,226,229,233), fontWeight: FontWeight.bold),
+            email,
+            style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 4), // Khoảng cách giữa email và tin nhắn
+          const SizedBox(height: 2),
           Text(
-            message, // Hiển thị tin nhắn
-            style: const TextStyle(fontSize: 16, color: Color.fromARGB(255,226,229,233)),
+            message,
+            style: const TextStyle(fontSize: 14, color: Colors.white),
           ),
         ],
       ),
