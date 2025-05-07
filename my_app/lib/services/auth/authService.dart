@@ -63,6 +63,45 @@ class Authservice extends ChangeNotifier {
     }
   }
 
+  // Lưu bài viết
+  Future<void> savePost(String postId) async {
+    try {
+      String userId = _firebaseAuth.currentUser!.uid;
+      await _fireStore.collection('users').doc(userId).update({
+        'savedPosts': FieldValue.arrayUnion([postId]),
+      });
+    } catch (e) {
+      throw Exception("Failed to save post: $e");
+    }
+  }
+
+  // Bỏ lưu bài viết
+  Future<void> unsavePost(String postId) async {
+    try {
+      String userId = _firebaseAuth.currentUser!.uid;
+      await _fireStore.collection('users').doc(userId).update({
+        'savedPosts': FieldValue.arrayRemove([postId]),
+      });
+    } catch (e) {
+      throw Exception("Failed to unsave post: $e");
+    }
+  }
+
+  // Lấy danh sách postId đã lưu
+  Future<List<String>> getSavedPosts() async {
+    try {
+      String userId = _firebaseAuth.currentUser!.uid;
+      DocumentSnapshot userDoc = await _fireStore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
+        return List<String>.from(data?['savedPosts'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      throw Exception("Failed to fetch saved posts: $e");
+    }
+  }
+
 
   // Lấy vị trí người dùng
   Future<Position?> _determinePosition() async {

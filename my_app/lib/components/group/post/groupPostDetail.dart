@@ -8,16 +8,20 @@ class PostDetailScreen extends StatefulWidget {
   final Posting post;
   final bool isLiked;
   final int likeCount;
+  final bool isSaved;
   final GroupPostingService postService;
   final VoidCallback? toggleLike;
+  final VoidCallback? toggleSave;
 
   const PostDetailScreen(
       {Key? key,
       required this.post,
       required this.isLiked,
       required this.likeCount,
+      required this.isSaved,
       required this.postService,
-      required this.toggleLike})
+      required this.toggleLike,
+      required this.toggleSave})
       : super(key: key);
 
   @override
@@ -26,6 +30,7 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   late bool isLiked;
+  late bool isSaved;
   late int likeCount;
   final Authservice auth = Authservice();
   final TextEditingController _commentController = TextEditingController();
@@ -36,6 +41,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void initState() {
     super.initState();
     isLiked = widget.isLiked; // Gán giá trị ban đầu
+    isSaved = widget.isSaved;
     likeCount = widget.likeCount;
     _fetchEmail();
   }
@@ -54,6 +60,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     setState(() {
       isLiked = !isLiked;
       likeCount += isLiked ? 1 : -1;
+    });
+  }
+
+  void toggleSave() {
+    widget.toggleSave?.call();
+    setState(() {
+      isSaved = !isSaved;
     });
   }
 
@@ -179,9 +192,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         onPressed: null,
                       ),
                       // Save Button
-                      IconButton(
-                        icon: Icon(Icons.bookmark_border, color: Colors.grey[500], size: 22),
-                        onPressed: null,
+                       IconButton(
+                        icon: Icon(
+                          isSaved ? Icons.bookmark : Icons.bookmark_border,
+                          color: isSaved ? Colors.yellow : Colors.grey[500],
+                          size: 22,
+                        ),
+                        onPressed: toggleSave,
                       ),
                     ],
                   ),

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:my_app/components/group/menu/savePostScreen.dart';
 import 'package:my_app/map/screens/mapScreen.dart';
+import 'package:my_app/screens/MenuScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -107,6 +109,14 @@ class _HomeWrapperState extends State<HomeWrapper> {
           selectedGroupId: selectedGroupId,
           postStream: videoStream,
           userGroups: userGroups,
+        ),
+        MenuScreen(
+          onSavedPostsSelected: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SavedPostsScreen()),
+            );
+          },
         ),
         _mapScreen,
       ];
@@ -323,7 +333,8 @@ class _HomeWrapperState extends State<HomeWrapper> {
                 children: [
                   _buildNavItem(icon: Icons.home, index: 0),
                   _buildNavItem(icon: Icons.play_circle, index: 1),
-                  _buildNavItem(icon: Icons.map, index: 2),
+                  _buildNavItem(icon: Icons.menu, index: 2),
+                  _buildNavItem(icon: Icons.map, index: 3),
                 ],
               ),
             ),
@@ -427,7 +438,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
           ValueListenableBuilder<int>(
             valueListenable: _currentIndex,
             builder: (context, pageIndex, child) {
-              if (pageIndex != 2) return SizedBox.shrink();
+              if (pageIndex != 3) return SizedBox.shrink();
               return Positioned(
                 top: 16,
                 left: 16,
@@ -453,9 +464,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
         onTap: () {
           setState(() {
             _onNavTap(index);
-            if (_currentIndex.value != 0) ;
-
-            if (_currentIndex.value != 0) {
+            if (_currentIndex.value != 0 && _currentIndex.value != 2) {
               _showNavBar.value = false;
             } else {
               _showNavBar.value = true;

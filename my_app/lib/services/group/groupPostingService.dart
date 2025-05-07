@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:my_app/model/group/posting.dart';
 
 class GroupPostingService extends ChangeNotifier {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
-  final String apiEndpoint = "http://192.168.215.200:5000/upload"; 
+  final String apiEndpoint = "http://192.168.215.200:5000/upload";
 
   /// Upload ảnh lên Cloudinary
   Future<List<String>> _uploadImages(List<File> images) async {
@@ -33,7 +32,7 @@ class GroupPostingService extends ChangeNotifier {
 
     for (File file in files) {
       var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint!));
-      request.fields['type'] = type; 
+      request.fields['type'] = type;
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       var response = await request.send();
@@ -55,12 +54,19 @@ class GroupPostingService extends ChangeNotifier {
     try {
       final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
       final Timestamp timestamp = Timestamp.now();
-      final String postId =
-          _fireStore.collection('groups').doc(groupId).collection('posts').doc().id;
+      final String postId = _fireStore
+          .collection('groups')
+          .doc(groupId)
+          .collection('posts')
+          .doc()
+          .id;
 
-      List<String> imageUrls = images != null ? await _uploadImages(images) : [];
-      List<String> videoUrls = videos != null ? await _uploadVideos(videos) : [];
-      List<String> voiceChatUrls = voices != null ? await _uploadVoices(voices) : [];
+      List<String> imageUrls =
+          images != null ? await _uploadImages(images) : [];
+      List<String> videoUrls =
+          videos != null ? await _uploadVideos(videos) : [];
+      List<String> voiceChatUrls =
+          voices != null ? await _uploadVoices(voices) : [];
 
       Posting newPost = Posting(
         postId: postId,
@@ -98,7 +104,11 @@ class GroupPostingService extends ChangeNotifier {
 
   Future<void> likePost(String groupId, String postId) async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
-    DocumentReference postRef = _fireStore.collection('groups').doc(groupId).collection('posts').doc(postId);
+    DocumentReference postRef = _fireStore
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .doc(postId);
 
     await _fireStore.runTransaction((transaction) async {
       DocumentSnapshot snapshot = await transaction.get(postRef);
@@ -117,7 +127,11 @@ class GroupPostingService extends ChangeNotifier {
 
   Future<void> addComment(String groupId, String postId, String comment) async {
     String? userId = FirebaseAuth.instance.currentUser!.email;
-    DocumentReference postRef = _fireStore.collection('groups').doc(groupId).collection('posts').doc(postId);
+    DocumentReference postRef = _fireStore
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .doc(postId);
 
     await _fireStore.runTransaction((transaction) async {
       DocumentSnapshot snapshot = await transaction.get(postRef);
@@ -131,7 +145,8 @@ class GroupPostingService extends ChangeNotifier {
   }
 
   //Lấy danh sách bình luận
-  Stream<List<Map<String, dynamic>>> getComments(String groupId, String postId) {
+  Stream<List<Map<String, dynamic>>> getComments(
+      String groupId, String postId) {
     return _fireStore
         .collection('groups')
         .doc(groupId)
@@ -139,14 +154,39 @@ class GroupPostingService extends ChangeNotifier {
         .doc(postId)
         .snapshots()
         .map((snapshot) {
-          if (!snapshot.exists || snapshot.data() == null) return [];
-          var data = snapshot.data() as Map<String, dynamic>;
-          return List<Map<String, dynamic>>.from(data['comments'] ?? []);
-        });
+      if (!snapshot.exists || snapshot.data() == null) return [];
+      var data = snapshot.data() as Map<String, dynamic>;
+      return List<Map<String, dynamic>>.from(data['comments'] ?? []);
+    });
   }
 
-
   Stream<DocumentSnapshot> getPostDetails(String groupId, String postId) {
-    return _fireStore.collection('groups').doc(groupId).collection('posts').doc(postId).snapshots();
+    return _fireStore
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .doc(postId)
+        .snapshots();
+  }
+
+  /// Lấy chi tiết các bài viết đã lưu
+  Stream<List<Posting>> getSavedPostDetails(List<String> postIds) {
+    return Stream.fromFuture(Future.wait(postIds.map((postId) async {
+      // Tìm groupId chứa bài viết
+      QuerySnapshot groupSnapshot = await _fireStore.collection('groups').get();
+      for (var groupDoc in groupSnapshot.docs) {
+        DocumentSnapshot postSnapshot = await _fireStore
+            .collection('groups')
+            .doc(groupDoc.id)
+            .collection('posts')
+            .doc(postId)
+            .get();
+        if (postSnapshot.exists) {
+          return Posting.fromMap(postSnapshot.data() as Map<String, dynamic>);
+        }
+      }
+      return null;
+    }))).map((posts) =>
+        posts.where((post) => post != null).cast<Posting>().toList());
   }
 }
