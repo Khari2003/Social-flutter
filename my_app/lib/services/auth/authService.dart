@@ -11,13 +11,12 @@ class Authservice extends ChangeNotifier {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
   // Đăng nhập và cập nhật vị trí
-  Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
+  Future<UserCredential> signInWithEmailAndPassword(
+      String email, String password) async {
     try {
       // Đăng nhập vào Firebase Authentication
-      UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
-        email: email, 
-        password: password
-      );
+      UserCredential userCredential = await _firebaseAuth
+          .signInWithEmailAndPassword(email: email, password: password);
 
       // Lấy UID của người dùng
       String userId = userCredential.user!.uid;
@@ -25,7 +24,7 @@ class Authservice extends ChangeNotifier {
       // Yêu cầu quyền và lấy vị trí hiện tại
       Position? position = await _determinePosition();
       GeoPoint? location;
-      
+
       if (position != null) {
         location = GeoPoint(position.latitude, position.longitude);
       }
@@ -34,8 +33,8 @@ class Authservice extends ChangeNotifier {
       _fireStore.collection('users').doc(userId).set({
         'uid': userId,
         'email': email,
-        'location': location != null 
-            ? {'lat': location.latitude, 'lng': location.longitude} 
+        'location': location != null
+            ? {'lat': location.latitude, 'lng': location.longitude}
             : null,
         'isAllowedLocation': location != null,
       }, SetOptions(merge: true));
@@ -46,11 +45,11 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-
-   Future<String?> getEmailById(String userId) async {
+  Future<String?> getEmailById(String userId) async {
     try {
-      DocumentSnapshot userDoc = await _fireStore.collection('users').doc(userId).get();
-      
+      DocumentSnapshot userDoc =
+          await _fireStore.collection('users').doc(userId).get();
+
       if (userDoc.exists) {
         // Cast the data to a Map<String, dynamic>
         Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
@@ -91,7 +90,8 @@ class Authservice extends ChangeNotifier {
   Future<List<String>> getSavedPosts() async {
     try {
       String userId = _firebaseAuth.currentUser!.uid;
-      DocumentSnapshot userDoc = await _fireStore.collection('users').doc(userId).get();
+      DocumentSnapshot userDoc =
+          await _fireStore.collection('users').doc(userId).get();
       if (userDoc.exists) {
         Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
         return List<String>.from(data?['savedPosts'] ?? []);
@@ -101,7 +101,6 @@ class Authservice extends ChangeNotifier {
       throw Exception("Failed to fetch saved posts: $e");
     }
   }
-
 
   // Lấy vị trí người dùng
   Future<Position?> _determinePosition() async {
@@ -131,9 +130,11 @@ class Authservice extends ChangeNotifier {
     return await Geolocator.getCurrentPosition();
   }
 
-  Future<UserCredential> signUpWithEmailAndPassword(String email, String password, bool isAllowedLocation, GeoPoint? location) async {
+  Future<UserCredential> signUpWithEmailAndPassword(String email,
+      String password, bool isAllowedLocation, GeoPoint? location) async {
     try {
-      UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await _firebaseAuth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       model.User newUser = model.User(
         userId: userCredential.user!.uid,
@@ -163,5 +164,29 @@ class Authservice extends ChangeNotifier {
 
   Future<void> signOut() async {
     return await FirebaseAuth.instance.signOut();
+  }
+
+  Future<void> updateUser({
+    required String userId,
+    String? fullName,
+    String? avatarUrl,
+    String? phoneNumber,
+    String? bio,
+  }) async {
+    try {
+      final Map<String, dynamic> updateData = {
+        if (fullName != null) 'fullName': fullName,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
+        if (phoneNumber != null) 'phoneNumber': phoneNumber,
+        if (bio != null) 'bio': bio,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (updateData.isNotEmpty) {
+        await _fireStore.collection('users').doc(userId).update(updateData);
+      }
+    } catch (e) {
+      throw Exception("Failed to update user: $e");
+    }
   }
 }

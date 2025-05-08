@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/components/group/menu/editProfileScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:my_app/services/auth/authService.dart';
-
 
 class MenuScreen extends StatelessWidget {
   final VoidCallback onSavedPostsSelected;
 
-  const MenuScreen({Key? key, required this.onSavedPostsSelected}) : super(key: key);
+  const MenuScreen({Key? key, required this.onSavedPostsSelected})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +35,20 @@ class MenuScreen extends StatelessWidget {
                 style: TextStyle(color: Colors.white, fontSize: 18),
               ),
               onTap: onSavedPostsSelected,
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.white),
+              title: const Text(
+                'Chỉnh sửa hồ sơ',
+                style: TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen()),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.settings, color: Colors.white),
