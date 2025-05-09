@@ -189,4 +189,17 @@ class Authservice extends ChangeNotifier {
       throw Exception("Failed to update user: $e");
     }
   }
+  //GetUser ByID
+  Future<model.User?> getUserById(String userId) async {
+    try {
+      DocumentSnapshot userDoc =
+          await _fireStore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        return model.User.fromMap(userDoc.data() as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      throw Exception("Failed to fetch user: $e");
+    }
+  }
 }

@@ -43,6 +43,31 @@ class User {
   }
 
   factory User.fromMap(Map<String, dynamic> map) {
+    print("Dữ liệu từ Firestore trong User.fromMap: $map");
+
+    if (map['uid'] == null ||
+        map['email'] == null ||
+        map['timestamp'] == null ||
+        map['isAllowedLocation'] == null) {
+      throw Exception(
+          "Dữ liệu người dùng không đầy đủ: Thiếu các trường bắt buộc (uid, email, timestamp, isAllowedLocation)");
+    }
+
+    if (map['uid'] is! String) {
+      throw Exception("Trường 'uid' phải là String, nhận được: ${map['uid']}");
+    }
+    if (map['email'] is! String) {
+      throw Exception(
+          "Trường 'email' phải là String, nhận được: ${map['email']}");
+    }
+    if (map['timestamp'] is! Timestamp) {
+      throw Exception(
+          "Trường 'timestamp' phải là Timestamp, nhận được: ${map['timestamp']}");
+    }
+    if (map['isAllowedLocation'] is! bool) {
+      throw Exception(
+          "Trường 'isAllowedLocation' phải là bool, nhận được: ${map['isAllowedLocation']}");
+    }
     return User(
       userId: map['uid'] as String,
       userEmail: map['email'] as String,
@@ -58,7 +83,7 @@ class User {
       avatarUrl: map['avatarUrl'] as String?,
       phoneNumber: map['phoneNumber'] as String?,
       bio: map['bio'] as String?,
-      updatedAt: map['updatedAt'] as Timestamp?,
+      updatedAt: map['updatedAt'] != null ? map['updatedAt'] as Timestamp : null,
     );
   }
 }

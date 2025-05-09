@@ -31,7 +31,7 @@ class GroupPostingService extends ChangeNotifier {
     List<String> urls = [];
 
     for (File file in files) {
-      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint!));
+      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint));
       request.fields['type'] = type;
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 

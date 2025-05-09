@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:my_app/model/user/user.dart' as model;
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -21,6 +22,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _bioController = TextEditingController();
   String? _avatarUrl;
   File? _selectedImage;
+  bool _isEditing = false;
   bool _isLoading = false;
 
   final String apiEndpoint = "http://192.168.215.200:5000/upload";
@@ -33,7 +35,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<model.User?> _loadUserData() async {
+    try {
+      final authService = Provider.of<Authservice>(context, listen: false);
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception("Người dùng chưa đăng nhập");
+      }
+      return await authService.getUserById(userId);
+    } catch (e) {
+      throw Exception("Lỗi khi tải dữ liệu: $e");
+    }
+  }
+
   Future<void> _pickImage() async {
+    if (!_isEditing) return;
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
@@ -97,7 +113,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Cập nhật hồ sơ thành công")),
       );
-      Navigator.pop(context);
+      setState(() {
+        _isEditing = false;
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Lỗi: $e")),
@@ -113,99 +131,171 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Chỉnh sửa hồ sơ"),
+        title: const Text("Hồ sơ"),
         backgroundColor: Colors.black87,
         foregroundColor: Colors.white,
+        actions: [
+          if (!_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                setState(() {
+                  _isEditing = true;
+                });
+              },
+            ),
+        ],
       ),
       backgroundColor: Colors.black87,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              GestureDetector(
-                onTap: _pickImage,
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundImage: _selectedImage != null
-                      ? FileImage(_selectedImage!)
-                      : (_avatarUrl != null ? NetworkImage(_avatarUrl!) : null)
-                          as ImageProvider?,
-                  child: _selectedImage == null && _avatarUrl == null
-                      ? const Icon(Icons.person, size: 50, color: Colors.white)
-                      : null,
-                ),
+      body: FutureBuilder<model.User?>(
+        future: _loadUserData(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Lỗi: ${snapshot.error}",
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {}); // Tải lại dữ liệu
+                    },
+                    child: const Text("Thử lại"),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _fullNameController,
-                decoration: const InputDecoration(
-                  labelText: "Họ và tên",
-                  labelStyle: TextStyle(color: Colors.white),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
-                ),
-                style: const TextStyle(color: Colors.white),
+            );
+          } else if (!snapshot.hasData || snapshot.data == null) {
+            return const Center(
+              child: Text(
+                "Không tìm thấy thông tin người dùng",
+                style: TextStyle(color: Colors.white),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneNumberController,
-                decoration: const InputDecoration(
-                  labelText: "Số điện thoại",
-                  labelStyle: TextStyle(color: Colors.white),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
-                ),
-                style: const TextStyle(color: Colors.white),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    if (!RegExp(r'^\+?[1-9]\d{1,14}$').hasMatch(value)) {
-                      return "Vui lòng nhập số điện thoại hợp lệ";
-                    }
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _bioController,
-                decoration: const InputDecoration(
-                  labelText: "Tiểu sử",
-                  labelStyle: TextStyle(color: Colors.white),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
-                ),
-                style: const TextStyle(color: Colors.white),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 24),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                      ),
-                      child: const Text("Lưu"),
+            );
+          }
+
+          // Dữ liệu người dùng đã tải thành công
+          final user = snapshot.data!;
+          _fullNameController.text = user.fullName ?? '';
+          _phoneNumberController.text = user.phoneNumber ?? '';
+          _bioController.text = user.bio ?? '';
+          _avatarUrl = user.avatarUrl;
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundImage: _selectedImage != null
+                          ? FileImage(_selectedImage!)
+                          : (_avatarUrl != null
+                              ? NetworkImage(_avatarUrl!)
+                              : null) as ImageProvider?,
+                      child: _selectedImage == null && _avatarUrl == null
+                          ? const Icon(Icons.person,
+                              size: 50, color: Colors.white)
+                          : null,
                     ),
-            ],
-          ),
-        ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _fullNameController,
+                    readOnly: !_isEditing,
+                    decoration: InputDecoration(
+                      labelText: "Họ và tên",
+                      labelStyle: const TextStyle(color: Colors.white),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                            color: _isEditing ? Colors.grey : Colors.grey),
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _phoneNumberController,
+                    readOnly: !_isEditing,
+                    decoration: InputDecoration(
+                      labelText: "Số điện thoại",
+                      labelStyle: const TextStyle(color: Colors.white),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                            color: _isEditing ? Colors.grey : Colors.grey),
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value != null && value.isNotEmpty && _isEditing) {
+                        if (!RegExp(r'^\+?[0-9]\d{1,14}$').hasMatch(value)) {
+                          return "Vui lòng nhập số điện thoại hợp lệ";
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _bioController,
+                    readOnly: !_isEditing,
+                    decoration: InputDecoration(
+                      labelText: "Tiểu sử",
+                      labelStyle: const TextStyle(color: Colors.white),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                            color: _isEditing ? Colors.grey : Colors.grey),
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isEditing)
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _saveProfile,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                            ),
+                            child: const Text("Lưu"),
+                          ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

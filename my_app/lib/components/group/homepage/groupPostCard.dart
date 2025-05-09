@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/components/group/menu/ProfileScreen.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/services/auth/authService.dart';
@@ -177,12 +178,22 @@ class _GroupPostCardState extends State<GroupPostCard> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                   child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.grey[800],
-                        child: const Icon(Icons.person_outline,
-                            color: Colors.white, size: 24),
+                   children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(userId: widget.post.userId),
+                            ),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.grey[800],
+                          child: const Icon(Icons.person_outline,
+                              color: Colors.white, size: 24),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
