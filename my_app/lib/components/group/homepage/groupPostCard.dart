@@ -9,6 +9,8 @@ import 'package:my_app/model/group/posting.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'package:my_app/services/group/groupChatService.dart';
+import 'package:my_app/services/group/groupService.dart';
 
 class GroupPostCard extends StatefulWidget {
   final Posting post;
@@ -48,7 +50,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
     });
   }
 
-    Future<void> _checkSavedStatus() async {
+  Future<void> _checkSavedStatus() async {
     try {
       List<String> savedPosts = await auth.getSavedPosts();
       setState(() {
@@ -112,6 +114,72 @@ class _GroupPostCardState extends State<GroupPostCard> {
         isCommenting.value = false;
       }
     }
+  }
+
+  void _sharePost() async {
+    final GroupService groupService = GroupService();
+    final GroupChatService chatService = GroupChatService();
+
+    // Lấy danh sách nhóm của người dùng
+    final userGroupsStream = groupService.getUserGroups();
+    final userGroups = await userGroupsStream.first.then((snapshot) => snapshot.docs);
+
+    if (userGroups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Bạn chưa tham gia nhóm nào!")),
+      );
+      return;
+    }
+
+    // Hiển thị danh sách nhóm để chọn
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Chia sẻ bài đăng"),
+        content: Container(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: userGroups.length,
+            itemBuilder: (context, index) {
+              final groupData = userGroups[index].data() as Map<String, dynamic>;
+              final groupId = userGroups[index].id;
+              final groupName = groupData['groupName'] as String;
+
+              return ListTile(
+                title: Text(groupName),
+                onTap: () async {
+                  try {
+                    // Gửi tin nhắn chia sẻ bài đăng
+                    await chatService.sendSharePostMessage(
+                      groupId,
+                      widget.post.postId,
+                      widget.post.groupId,
+                      widget.post.content,
+                      widget.post.imageUrls?.isNotEmpty ?? false ? widget.post.imageUrls![0] : null,
+                    );
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Đã chia sẻ bài đăng!")),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Lỗi khi chia sẻ: $e")),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Hủy"),
+          ),
+        ],
+      ),
+    );
   }
 
   String formatTimestamp(DateTime timestamp) {
@@ -178,13 +246,16 @@ class _GroupPostCardState extends State<GroupPostCard> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                   child: Row(
-                   children: [
+                    children: [
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProfileScreen(userId: widget.post.userId),
+                              builder: (context) => ProfileScreen(
+                                userId: widget.post.userId,
+                                groupId: widget.post.groupId, // Truyền thêm groupId
+                              ),
                             ),
                           );
                         },
@@ -430,7 +501,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                       IconButton(
                         icon: Icon(Icons.share,
                             color: Colors.grey[500], size: 22),
-                        onPressed: null,
+                        onPressed: _sharePost,
                       ),
                       // Save Button
                       IconButton(

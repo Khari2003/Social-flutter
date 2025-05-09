@@ -48,6 +48,46 @@ class GroupChatService extends ChangeNotifier {
     }
     return urls;
   }
+   // Send Shared Post Message
+  Future<void> sendSharePostMessage(
+    String groupId,
+    String postId,
+    String originalGroupId,
+    String content,
+    String? imageUrl,
+  ) async {
+    try {
+      final String currentUserId = _firebaseAuth.currentUser!.uid;
+      final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
+      final String messageId = _fireStore.collection('groups').doc(groupId).collection('chat_rooms').doc(groupId).collection('messages').doc().id;
+      final Timestamp timestamp = Timestamp.now();
+
+      // Kết hợp thông tin chia sẻ thành chuỗi message
+      String shareMessage = 'Đã chia sẻ bài đăng từ nhóm $originalGroupId: $content';
+      if (imageUrl != null) {
+        shareMessage += ' (Có ảnh)';
+      }
+
+      Message newMessage = Message(
+        senderId: currentUserId,
+        senderEmail: currentUserEmail,
+        receiverId: '',
+        message: shareMessage,
+        timestamp: timestamp, type: '',
+      );
+
+      await _fireStore.collection('groups')
+          .doc(groupId)
+          .collection('chat_rooms')
+          .doc(groupId)
+          .collection('messages')
+          .doc(messageId)
+          .set(newMessage.toMap());
+    } catch (e) {
+      throw Exception("Failed to share post: $e");
+    }
+  }
+
 
   // Send Group Message (Public Chat)
   Future<void> sendGroupMessage(String groupId, String message, {List<File>? images, List<File>? videos, List<File>? voices}) async {

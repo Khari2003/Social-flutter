@@ -189,7 +189,8 @@ class Authservice extends ChangeNotifier {
       throw Exception("Failed to update user: $e");
     }
   }
-  //GetUser ByID
+
+  // Lấy thông tin người dùng dựa trên userId
   Future<model.User?> getUserById(String userId) async {
     try {
       DocumentSnapshot userDoc =
@@ -201,5 +202,27 @@ class Authservice extends ChangeNotifier {
     } catch (e) {
       throw Exception("Failed to fetch user: $e");
     }
+  }
+
+  // Lấy danh sách bài đăng của người dùng trong tất cả các nhóm
+  Stream<QuerySnapshot> getUserPosts(String userId) {
+    return _fireStore
+        .collectionGroup('posts')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots();
+  }
+
+  // Lấy danh sách bài đăng của người dùng trong một nhóm cụ thể
+  Stream<QuerySnapshot> getUserPostsInGroup(String userId, String groupId) {
+    return _fireStore
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots();
   }
 }
