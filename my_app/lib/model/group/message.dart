@@ -6,10 +6,12 @@ class Message {
   final String receiverId; // Empty if it's a group message
   final String message;
   final Timestamp timestamp;
-  final String type; // 'group' or 'private'
+  final String type; // 'group', 'private', or 'share_post'
   final List<String>? imageUrls; // List of image URLs
   final String? videoUrl; // URL for a video
   final String? voiceChatUrl; // URL for a voice chat
+  final String? postId; // ID of the shared post (for share_post type)
+  final String? originalGroupId; // Group ID of the shared post (for share_post type)
 
   Message({
     required this.senderId,
@@ -21,6 +23,8 @@ class Message {
     this.imageUrls,
     this.videoUrl,
     this.voiceChatUrl,
+    this.postId,
+    this.originalGroupId,
   });
 
   // Convert Message object to Map for Firestore
@@ -35,6 +39,8 @@ class Message {
       'imageUrls': imageUrls,
       'videoUrl': videoUrl,
       'voiceChatUrl': voiceChatUrl,
+      'postId': postId,
+      'originalGroupId': originalGroupId,
     };
   }
 
@@ -47,9 +53,11 @@ class Message {
       message: map['message'],
       timestamp: map['timestamp'],
       type: map['type'],
-      imageUrls: List<String>.from(map['imageUrls'] ?? []),
+      imageUrls: map['imageUrls'] != null ? List<String>.from(map['imageUrls']) : null,
       videoUrl: map['videoUrl'],
       voiceChatUrl: map['voiceChatUrl'],
+      postId: map['postId'],
+      originalGroupId: map['originalGroupId'],
     );
   }
 }

@@ -60,7 +60,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.redAccent,
-          content: Text('Lỗi khi kiểm tra trạng thái lưu: $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Lỗi khi kiểm tra trạng thái lưu: $e',
+              style: const TextStyle(color: Colors.white)),
         ),
       );
     }
@@ -119,57 +120,134 @@ class _GroupPostCardState extends State<GroupPostCard> {
   void _sharePost() async {
     final GroupService groupService = GroupService();
     final GroupChatService chatService = GroupChatService();
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
     // Lấy danh sách nhóm của người dùng
     final userGroupsStream = groupService.getUserGroups();
-    final userGroups = await userGroupsStream.first.then((snapshot) => snapshot.docs);
+    final userGroups =
+        await userGroupsStream.first.then((snapshot) => snapshot.docs);
 
-    if (userGroups.isEmpty) {
+    // Lấy danh sách người dùng đã nhắn tin (từ collection private chats)
+    final privateChatsSnapshot = await FirebaseFirestore.instance
+        .collection('private_chats')
+        .where('users', arrayContains: currentUserId)
+        .get();
+    final privateChatUsers = privateChatsSnapshot.docs.map((doc) {
+      final data = doc.data();
+      final otherUserId = (data['users'] as List)
+          .firstWhere((id) => id != currentUserId) as String;
+      return otherUserId;
+    }).toList();
+
+    if (userGroups.isEmpty && privateChatUsers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Bạn chưa tham gia nhóm nào!")),
+        const SnackBar(content: Text("Không có nhóm hoặc người để chia sẻ!")),
       );
       return;
     }
 
-    // Hiển thị danh sách nhóm để chọn
+    // Hiển thị danh sách nhóm và người dùng
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Chia sẻ bài đăng"),
         content: Container(
           width: double.maxFinite,
-          child: ListView.builder(
+          child: ListView(
             shrinkWrap: true,
-            itemCount: userGroups.length,
-            itemBuilder: (context, index) {
-              final groupData = userGroups[index].data() as Map<String, dynamic>;
-              final groupId = userGroups[index].id;
-              final groupName = groupData['groupName'] as String;
-
-              return ListTile(
-                title: Text(groupName),
-                onTap: () async {
-                  try {
-                    // Gửi tin nhắn chia sẻ bài đăng
-                    await chatService.sendSharePostMessage(
-                      groupId,
-                      widget.post.postId,
-                      widget.post.groupId,
-                      widget.post.content,
-                      widget.post.imageUrls?.isNotEmpty ?? false ? widget.post.imageUrls![0] : null,
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Đã chia sẻ bài đăng!")),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Lỗi khi chia sẻ: $e")),
-                    );
-                  }
-                },
-              );
-            },
+            children: [
+              // Danh sách nhóm
+              if (userGroups.isNotEmpty) ...[
+                const Text("Nhóm",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                ...userGroups.map((doc) {
+                  final groupData = doc.data() as Map<String, dynamic>;
+                  final groupId = doc.id;
+                  final groupName = groupData['groupName'] as String;
+                  return ListTile(
+                    title: Text(groupName),
+                    onTap: () async {
+                      try {
+                        String shareContent = widget.post.content;
+                        String? shareImage =
+                            widget.post.imageUrls?.isNotEmpty == true
+                                ? widget.post.imageUrls!.first
+                                : null;
+                        String? shareVideo = widget.post.videoUrl;
+                        // print("videoURL${shareVideo}");
+                        await chatService.sendSharePostMessage(
+                          groupId,
+                          widget.post.postId,
+                          widget.post.groupId,
+                          shareContent,
+                          shareVideo ,
+                          shareImage,
+                          postOwnerName: email ?? 'Ẩn danh',
+                        );
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Đã chia sẻ bài đăng!")),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Lỗi khi chia sẻ: $e")),
+                        );
+                      }
+                    },
+                  );
+                }).toList(),
+                const Divider(),
+              ],
+              // Danh sách người dùng
+              if (privateChatUsers.isNotEmpty) ...[
+                const Text("Người dùng",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                ...privateChatUsers.map((userId) {
+                  return FutureBuilder<String?>(
+                    future: auth.getEmailById(userId),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final userEmail = snapshot.data!.split('@')[0];
+                      return ListTile(
+                        title: Text(userEmail),
+                        onTap: () async {
+                          try {
+                            String shareContent = widget.post.content;
+                            String? shareImage =
+                                widget.post.imageUrls?.isNotEmpty == true
+                                    ? widget.post.imageUrls!.first
+                                    : null;
+                            String? shareVideo = widget.post.videoUrl;
+                            await chatService.sendPrivateMessage(
+                              widget.post.groupId,
+                              userId,
+                              shareContent,
+                              sharedImages:
+                                  shareImage != null ? [shareImage] : null,
+                              videoUrl:
+                                  shareVideo, // Pass videoUrl for shared post
+                              postOwnerName: email ?? 'Ẩn danh',
+                              type: 'share_post',
+                              postId: widget.post.postId,
+                              originalGroupId: widget.post.groupId,
+                            );
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Đã chia sẻ bài đăng!")),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Lỗi khi chia sẻ: $e")),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  );
+                }).toList(),
+              ],
+            ],
           ),
         ),
         actions: [
@@ -254,7 +332,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                             MaterialPageRoute(
                               builder: (context) => ProfileScreen(
                                 userId: widget.post.userId,
-                                groupId: widget.post.groupId, // Truyền thêm groupId
+                                groupId: widget.post.groupId,
                               ),
                             ),
                           );
@@ -357,9 +435,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                       final height =
                                           aspectRatio > 1.2 ? 500.0 : 300.0;
                                       return Container(
-                                        height: height,
-                                        child: child,
-                                      );
+                                          height: height, child: child);
                                     }
                                     return Container(
                                       height: 300,
@@ -530,9 +606,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
           ImageStreamListener(
             (ImageInfo info, bool synchronousCall) {
               completer.complete(Size(
-                info.image.width.toDouble(),
-                info.image.height.toDouble(),
-              ));
+                  info.image.width.toDouble(), info.image.height.toDouble()));
             },
             onError: (exception, stackTrace) {
               completer.complete(const Size(1, 1));

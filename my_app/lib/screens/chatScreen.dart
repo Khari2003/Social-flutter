@@ -7,9 +7,12 @@ import 'package:my_app/services/group/groupChatService.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:my_app/components/group/post/groupPostDetail.dart';
+import 'package:my_app/model/group/posting.dart';
 
 class ChatScreen extends StatefulWidget {
   final String GroupId;
@@ -186,11 +189,89 @@ class _ChatScreenState extends State<ChatScreen> {
     Map<String, dynamic> data = document.data() as Map<String, dynamic>;
     var isSender = data['senderId'] == _firebaseAuth.currentUser!.uid;
 
+    if (data['type'] == 'share_post') {
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PostDetailScreen(
+                post: Posting(
+                  postId: data['postId'],
+                  groupId: data['originalGroupId'],
+                  userId: data['senderId'],
+                  content: data['message'],
+                  videoUrl: data['videoUrl'],
+                  imageUrls: data['imageUrls'] != null ? List<String>.from(data['imageUrls']) : null,
+                  timestamp: data['timestamp'] ?? Timestamp.now(),
+                  comments: [],
+                ),
+                isLiked: false,
+                likeCount: 0,
+                isSaved: false,
+                postService: GroupPostingService(),
+                toggleLike: () {},
+                toggleSave: () {},
+              ),
+            ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF3A3A3A),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Text(
+                data['message'],
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      data['imageUrls'][0],
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.play_circle_filled,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment:
-            isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -204,23 +285,19 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           Row(
-            mainAxisAlignment:
-                isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment: isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
             children: [
               if (!isSender) const SizedBox(width: 8),
               Flexible(
                 child: Column(
-                  crossAxisAlignment: isSender
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
+                  crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
                     if (data['voiceChatUrl'] != null)
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            await _audioPlayer
-                                .play(UrlSource(data['voiceChatUrl']));
+                            await _audioPlayer.play(UrlSource(data['voiceChatUrl']));
                           },
                           icon: const Icon(Icons.play_arrow, size: 20),
                           label: const Text('Play Audio'),
@@ -233,7 +310,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                       ),
-                    if (data['imageUrls'] != null)
+                    if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
                       ...data['imageUrls'].map<Widget>((url) => GestureDetector(
                             onTap: () {
                               _showFullScreenImage(context, url);
@@ -242,35 +319,25 @@ class _ChatScreenState extends State<ChatScreen> {
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.grey[800]!,
-                                  width: 1,
-                                ),
+                                border: Border.all(color: Colors.grey[800]!, width: 1),
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.network(
                                   url,
                                   width: MediaQuery.of(context).size.width * 0.6,
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.3,
+                                  height: MediaQuery.of(context).size.height * 0.3,
                                   fit: BoxFit.cover,
-                                  loadingBuilder:
-                                      (context, child, loadingProgress) {
+                                  loadingBuilder: (context, child, loadingProgress) {
                                     if (loadingProgress == null) return child;
                                     return const Center(
-                                        child: CircularProgressIndicator(
-                                      color: Colors.blueAccent,
-                                    ));
+                                        child: CircularProgressIndicator(color: Colors.blueAccent));
                                   },
                                   errorBuilder: (context, error, stackTrace) {
                                     return Container(
                                       height: 100,
                                       color: Colors.grey[800],
-                                      child: const Icon(
-                                        Icons.error,
-                                        color: Colors.redAccent,
-                                      ),
+                                      child: const Icon(Icons.error, color: Colors.redAccent),
                                     );
                                   },
                                 ),
@@ -278,10 +345,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           )),
                     if (data['message'] != '')
-                      ChatBubble(
-                        message: data['message'],
-                        isSender: isSender,
-                      ),
+                      ChatBubble(message: data['message'], isSender: isSender),
                   ],
                 ),
               ),
@@ -311,10 +375,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 boundaryMargin: const EdgeInsets.all(20),
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                ),
+                child: Image.network(imageUrl, fit: BoxFit.contain),
               ),
             ),
           ),
@@ -364,11 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: Colors.redAccent,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                    child: const Icon(Icons.close, color: Colors.white, size: 18),
                   ),
                 ),
               ),
@@ -400,8 +457,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 IconButton(
                   icon: const Icon(Icons.play_arrow, color: Colors.blueAccent),
                   onPressed: () async {
-                    await _audioPlayer
-                        .play(DeviceFileSource(_voiceFiles[index].path));
+                    await _audioPlayer.play(DeviceFileSource(_voiceFiles[index].path));
                   },
                 ),
                 IconButton(
@@ -457,11 +513,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           IconButton(
             onPressed: sendMessage,
-            icon: const Icon(
-              Icons.send,
-              color: Colors.blueAccent,
-              size: 28,
-            ),
+            icon: const Icon(Icons.send, color: Colors.blueAccent, size: 28),
           ),
         ],
       ),
