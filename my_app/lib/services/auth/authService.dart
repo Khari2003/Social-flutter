@@ -1,5 +1,3 @@
-// ignore_for_file: file_names
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,18 +8,14 @@ class Authservice extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
-  // Đăng nhập và cập nhật vị trí
   Future<UserCredential> signInWithEmailAndPassword(
       String email, String password) async {
     try {
-      // Đăng nhập vào Firebase Authentication
       UserCredential userCredential = await _firebaseAuth
           .signInWithEmailAndPassword(email: email, password: password);
 
-      // Lấy UID của người dùng
       String userId = userCredential.user!.uid;
 
-      // Yêu cầu quyền và lấy vị trí hiện tại
       Position? position = await _determinePosition();
       GeoPoint? location;
 
@@ -29,7 +23,6 @@ class Authservice extends ChangeNotifier {
         location = GeoPoint(position.latitude, position.longitude);
       }
 
-      // Cập nhật Firestore với thông tin người dùng và tọa độ
       _fireStore.collection('users').doc(userId).set({
         'uid': userId,
         'email': email,
@@ -51,18 +44,16 @@ class Authservice extends ChangeNotifier {
           await _fireStore.collection('users').doc(userId).get();
 
       if (userDoc.exists) {
-        // Cast the data to a Map<String, dynamic>
         Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
         return data?['email'] as String?;
       } else {
-        return null; // User not found
+        return null;
       }
     } catch (e) {
       throw Exception("Error fetching email: $e");
     }
   }
 
-  // Lưu bài viết
   Future<void> savePost(String postId) async {
     try {
       String userId = _firebaseAuth.currentUser!.uid;
@@ -74,7 +65,6 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-  // Bỏ lưu bài viết
   Future<void> unsavePost(String postId) async {
     try {
       String userId = _firebaseAuth.currentUser!.uid;
@@ -86,7 +76,6 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-  // Lấy danh sách postId đã lưu
   Future<List<String>> getSavedPosts() async {
     try {
       String userId = _firebaseAuth.currentUser!.uid;
@@ -102,31 +91,27 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-  // Lấy vị trí người dùng
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Kiểm tra xem dịch vụ vị trí có được bật không
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return null; // Dịch vụ vị trí bị tắt
+      return null;
     }
 
-    // Kiểm tra quyền truy cập vị trí
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return null; // Người dùng từ chối quyền truy cập
+        return null;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return null; // Người dùng chặn vĩnh viễn quyền truy cập vị trí
+      return null;
     }
 
-    // Lấy tọa độ hiện tại của người dùng
     return await Geolocator.getCurrentPosition();
   }
 
@@ -170,6 +155,7 @@ class Authservice extends ChangeNotifier {
     required String userId,
     String? fullName,
     String? avatarUrl,
+    String? coverPhotoUrl, // New field
     String? phoneNumber,
     String? bio,
   }) async {
@@ -177,6 +163,7 @@ class Authservice extends ChangeNotifier {
       final Map<String, dynamic> updateData = {
         if (fullName != null) 'fullName': fullName,
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
+        if (coverPhotoUrl != null) 'coverPhotoUrl': coverPhotoUrl, // New field
         if (phoneNumber != null) 'phoneNumber': phoneNumber,
         if (bio != null) 'bio': bio,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -190,7 +177,6 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-  // Lấy thông tin người dùng dựa trên userId
   Future<model.User?> getUserById(String userId) async {
     try {
       DocumentSnapshot userDoc =
@@ -204,7 +190,6 @@ class Authservice extends ChangeNotifier {
     }
   }
 
-  // Lấy danh sách bài đăng của người dùng trong tất cả các nhóm
   Stream<QuerySnapshot> getUserPosts(String userId) {
     return _fireStore
         .collectionGroup('posts')
@@ -214,7 +199,6 @@ class Authservice extends ChangeNotifier {
         .snapshots();
   }
 
-  // Lấy danh sách bài đăng của người dùng trong một nhóm cụ thể
   Stream<QuerySnapshot> getUserPostsInGroup(String userId, String groupId) {
     return _fireStore
         .collection('groups')

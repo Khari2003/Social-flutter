@@ -10,7 +10,7 @@ class GroupChatService extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
-  final String apiEndpoint = "http://192.168.1.200:5000/upload"; 
+  final String apiEndpoint = "http://192.168.1.200:5000/upload";
 
   /// Upload ảnh lên Cloudinary
   Future<List<String>> _uploadImages(List<File> images) async {
@@ -33,7 +33,7 @@ class GroupChatService extends ChangeNotifier {
 
     for (File file in files) {
       var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint));
-      request.fields['type'] = type; 
+      request.fields['type'] = type;
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
       var response = await request.send();
@@ -56,23 +56,32 @@ class GroupChatService extends ChangeNotifier {
     String originalGroupId,
     String content,
     String? videoUrl,
-    String? imageUrl, {
-    String? postOwnerName,
-  }) async {
+    List<String>? imageUrls, // Sửa thành danh sách
+    {String? postOwnerName}
+  ) async {
     try {
       final String currentUserId = _firebaseAuth.currentUser!.uid;
       final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
-      final String messageId = _fireStore.collection('groups').doc(groupId).collection('chat_rooms').doc(groupId).collection('messages').doc().id;
+      final String messageId = _fireStore
+          .collection('groups')
+          .doc(groupId)
+          .collection('chat_rooms')
+          .doc(groupId)
+          .collection('messages')
+          .doc()
+          .id;
       final Timestamp timestamp = Timestamp.now();
 
       // Kết hợp thông tin chia sẻ thành chuỗi message
       String shareMessage = 'Đã chia sẻ bài đăng từ ${postOwnerName ?? 'Ẩn danh'}: $content';
-      if (imageUrl != null) {
-        shareMessage += ' (Có ảnh)';
+      if (imageUrls != null && imageUrls.isNotEmpty) {
+        shareMessage += ' (Có ${imageUrls.length} ảnh)';
       }
       if (videoUrl != null) {
         shareMessage += ' (Có video)';
       }
+
+      print("Sending share post with imageUrls: $imageUrls"); // Log để kiểm tra
 
       Message newMessage = Message(
         senderId: currentUserId,
@@ -81,13 +90,14 @@ class GroupChatService extends ChangeNotifier {
         message: shareMessage,
         timestamp: timestamp,
         type: 'share_post',
-        imageUrls: imageUrl != null ? [imageUrl] : null,
-        videoUrl: videoUrl != null  ? videoUrl : null, // Set videoUrl
+        imageUrls: imageUrls, // Lưu toàn bộ danh sách
+        videoUrl: videoUrl,
         postId: postId,
         originalGroupId: originalGroupId,
       );
 
-      await _fireStore.collection('groups')
+      await _fireStore
+          .collection('groups')
           .doc(groupId)
           .collection('chat_rooms')
           .doc(groupId)
@@ -100,11 +110,19 @@ class GroupChatService extends ChangeNotifier {
   }
 
   // Send Group Message (Public Chat)
-  Future<void> sendGroupMessage(String groupId, String message, {List<File>? images, List<File>? videos, List<File>? voices}) async {
+  Future<void> sendGroupMessage(String groupId, String message,
+      {List<File>? images, List<File>? videos, List<File>? voices}) async {
     try {
       final String currentUserId = _firebaseAuth.currentUser!.uid;
       final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
-      final String messageId = _fireStore.collection('groups').doc(groupId).collection('chat_rooms').doc(groupId).collection('messages').doc().id;
+      final String messageId = _fireStore
+          .collection('groups')
+          .doc(groupId)
+          .collection('chat_rooms')
+          .doc(groupId)
+          .collection('messages')
+          .doc()
+          .id;
       final Timestamp timestamp = Timestamp.now();
       List<String> imageUrls = images != null ? await _uploadImages(images) : [];
       List<String> videoUrls = videos != null ? await _uploadVideos(videos) : [];
@@ -122,7 +140,8 @@ class GroupChatService extends ChangeNotifier {
         voiceChatUrl: voiceChatUrls.isNotEmpty ? voiceChatUrls[0] : null,
       );
 
-      await _fireStore.collection('groups')
+      await _fireStore
+          .collection('groups')
           .doc(groupId)
           .collection('chat_rooms')
           .doc(groupId)
@@ -139,11 +158,11 @@ class GroupChatService extends ChangeNotifier {
     String groupId,
     String receiverId,
     String message, {
-    List<File>? images, // For uploading new images
-    List<String>? sharedImages, // For shared post URLs
+    List<File>? images,
+    List<String>? sharedImages,
     List<File>? videos,
     List<File>? voices,
-    String? videoUrl, // Added for shared post video URL
+    String? videoUrl,
     String? postOwnerName,
     String? type = 'private',
     String? postId,
@@ -152,14 +171,21 @@ class GroupChatService extends ChangeNotifier {
     try {
       final String currentUserId = _firebaseAuth.currentUser!.uid;
       final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
-      
+
       final Timestamp timestamp = Timestamp.now();
 
       List<String> ids = [currentUserId, receiverId];
       ids.sort();
       String chatRoomId = ids.join("_");
 
-      final String messageId = _fireStore.collection('groups').doc(groupId).collection('chat_rooms').doc(chatRoomId).collection('messages').doc().id;
+      final String messageId = _fireStore
+          .collection('groups')
+          .doc(groupId)
+          .collection('chat_rooms')
+          .doc(chatRoomId)
+          .collection('messages')
+          .doc()
+          .id;
 
       List<String> imageUrls = images != null ? await _uploadImages(images) : [];
       if (sharedImages != null && sharedImages.isNotEmpty) {
@@ -172,12 +198,14 @@ class GroupChatService extends ChangeNotifier {
       if (type == 'share_post') {
         finalMessage = 'Đã chia sẻ bài đăng từ ${postOwnerName ?? 'Ẩn danh'}: $message';
         if (imageUrls.isNotEmpty) {
-          finalMessage += ' (Có ảnh)';
+          finalMessage += ' (Có ${imageUrls.length} ảnh)';
         }
         if (videoUrl != null && videoUrl.isNotEmpty) {
           finalMessage += ' (Có video)';
         }
       }
+
+      print("Sending private message with imageUrls: $imageUrls"); // Log để kiểm tra
 
       Message newMessage = Message(
         senderId: currentUserId,
@@ -189,16 +217,17 @@ class GroupChatService extends ChangeNotifier {
         imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
         videoUrl: type == 'share_post' && videoUrl != null && videoUrl.isNotEmpty
             ? videoUrl
-            : (videoUrls.isNotEmpty ? videoUrls[0] : null), // Use shared videoUrl if present
+            : (videoUrls.isNotEmpty ? videoUrls[0] : null),
         voiceChatUrl: voiceChatUrls.isNotEmpty ? voiceChatUrls[0] : null,
         postId: postId,
         originalGroupId: originalGroupId,
       );
 
-      await _fireStore.collection('groups')
+      await _fireStore
+          .collection('groups')
           .doc(groupId)
           .collection('chat_rooms')
-          .doc(chatRoomId) 
+          .doc(chatRoomId)
           .collection('messages')
           .doc(messageId)
           .set(newMessage.toMap());
@@ -209,7 +238,8 @@ class GroupChatService extends ChangeNotifier {
 
   // Get Group Messages (Public Chat)
   Stream<QuerySnapshot> getGroupMessages(String groupId) {
-    return _fireStore.collection('groups')
+    return _fireStore
+        .collection('groups')
         .doc(groupId)
         .collection('chat_rooms')
         .doc(groupId)
@@ -224,7 +254,8 @@ class GroupChatService extends ChangeNotifier {
     ids.sort();
     String chatRoomId = ids.join("_");
 
-    return _fireStore.collection('groups')
+    return _fireStore
+        .collection('groups')
         .doc(groupId)
         .collection('chat_rooms')
         .doc(chatRoomId)

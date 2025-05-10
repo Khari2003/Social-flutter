@@ -8,6 +8,7 @@ class User {
   final bool isAllowedLocation;
   final String? fullName;
   final String? avatarUrl;
+  final String? coverPhotoUrl; // New field
   final String? phoneNumber;
   final String? bio;
   final Timestamp? updatedAt;
@@ -20,6 +21,7 @@ class User {
     required this.isAllowedLocation,
     this.fullName,
     this.avatarUrl,
+    this.coverPhotoUrl,
     this.phoneNumber,
     this.bio,
     this.updatedAt,
@@ -36,6 +38,7 @@ class User {
       'isAllowedLocation': isAllowedLocation,
       'fullName': fullName,
       'avatarUrl': avatarUrl,
+      'coverPhotoUrl': coverPhotoUrl, // New field
       'phoneNumber': phoneNumber,
       'bio': bio,
       'updatedAt': updatedAt ?? FieldValue.serverTimestamp(),
@@ -81,6 +84,7 @@ class User {
       isAllowedLocation: map['isAllowedLocation'] as bool,
       fullName: map['fullName'] as String?,
       avatarUrl: map['avatarUrl'] as String?,
+      coverPhotoUrl: map['coverPhotoUrl'] as String?, // New field
       phoneNumber: map['phoneNumber'] as String?,
       bio: map['bio'] as String?,
       updatedAt: map['updatedAt'] != null ? map['updatedAt'] as Timestamp : null,

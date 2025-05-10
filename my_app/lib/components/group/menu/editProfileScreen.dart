@@ -21,11 +21,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneNumberController = TextEditingController();
   final _bioController = TextEditingController();
   String? _avatarUrl;
-  File? _selectedImage;
+  String? _coverPhotoUrl; // New field
+  File? _selectedAvatarImage;
+  File? _selectedCoverImage; // New field
   bool _isEditing = false;
   bool _isLoading = false;
 
-  final String apiEndpoint = "http://192.168.215.200:5000/upload";
+  final String apiEndpoint = "http://192.168.1.5:5000/upload";
 
   @override
   void dispose() {
@@ -48,14 +50,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickAvatarImage() async {
     if (!_isEditing) return;
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedAvatarImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _pickCoverImage() async {
+    if (!_isEditing) return;
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _selectedCoverImage = File(pickedFile.path);
       });
     }
   }
@@ -92,8 +106,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final userId = FirebaseAuth.instance.currentUser!.uid;
 
       String? avatarUrl = _avatarUrl;
-      if (_selectedImage != null) {
-        avatarUrl = await _uploadImage(_selectedImage!);
+      String? coverPhotoUrl = _coverPhotoUrl; // New field
+
+      if (_selectedAvatarImage != null) {
+        avatarUrl = await _uploadImage(_selectedAvatarImage!);
+      }
+      if (_selectedCoverImage != null) {
+        coverPhotoUrl = await _uploadImage(_selectedCoverImage!); // New field
       }
 
       await authService.updateUser(
@@ -102,6 +121,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ? null
             : _fullNameController.text.trim(),
         avatarUrl: avatarUrl,
+        coverPhotoUrl: coverPhotoUrl, // New field
         phoneNumber: _phoneNumberController.text.trim().isEmpty
             ? null
             : _phoneNumberController.text.trim(),
@@ -131,9 +151,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Hồ sơ"),
+        title: const Text("Chỉnh sửa hồ sơ"),
         backgroundColor: Colors.black87,
         foregroundColor: Colors.white,
+        elevation: 4,
         actions: [
           if (!_isEditing)
             IconButton(
@@ -151,7 +172,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         future: _loadUserData(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
           } else if (snapshot.hasError) {
             return Center(
               child: Column(
@@ -159,7 +180,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   Text(
                     "Lỗi: ${snapshot.error}",
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -167,6 +188,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     onPressed: () {
                       setState(() {}); // Tải lại dữ liệu
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: const Text("Thử lại"),
                   ),
                 ],
@@ -176,55 +204,179 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             return const Center(
               child: Text(
                 "Không tìm thấy thông tin người dùng",
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: Colors.white, fontSize: 18),
               ),
             );
           }
 
-          // Dữ liệu người dùng đã tải thành công
           final user = snapshot.data!;
           _fullNameController.text = user.fullName ?? '';
           _phoneNumberController.text = user.phoneNumber ?? '';
           _bioController.text = user.bio ?? '';
           _avatarUrl = user.avatarUrl;
+          _coverPhotoUrl = user.coverPhotoUrl; // New field
 
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Form(
               key: _formKey,
-              child: ListView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Cover photo
                   GestureDetector(
-                    onTap: _pickImage,
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage: _selectedImage != null
-                          ? FileImage(_selectedImage!)
-                          : (_avatarUrl != null
-                              ? NetworkImage(_avatarUrl!)
-                              : null) as ImageProvider?,
-                      child: _selectedImage == null && _avatarUrl == null
-                          ? const Icon(Icons.person,
-                              size: 50, color: Colors.white)
-                          : null,
+                    onTap: _pickCoverImage,
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white12, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        image: _selectedCoverImage != null
+                            ? DecorationImage(
+                                image: FileImage(_selectedCoverImage!),
+                                fit: BoxFit.cover,
+                              )
+                            : (_coverPhotoUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage(_coverPhotoUrl!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null),
+                      ),
+                      child: _selectedCoverImage == null && _coverPhotoUrl == null
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo,
+                                    size: 40,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "Thêm ảnh bìa",
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : (_isEditing
+                              ? Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.edit,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                  ),
+                                )
+                              : null),
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Avatar
+                  GestureDetector(
+                    onTap: _pickAvatarImage,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [Colors.blueAccent, Colors.tealAccent],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.4),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: CircleAvatar(
+                            radius: 60,
+                            backgroundImage: _selectedAvatarImage != null
+                                ? FileImage(_selectedAvatarImage!)
+                                : (_avatarUrl != null
+                                    ? NetworkImage(_avatarUrl!)
+                                    : null) as ImageProvider?,
+                            backgroundColor: Colors.grey[800],
+                            child: _selectedAvatarImage == null && _avatarUrl == null
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 60,
+                                    color: Colors.white70,
+                                  )
+                                : null,
+                          ),
+                        ),
+                        if (_isEditing)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   TextFormField(
                     controller: _fullNameController,
                     readOnly: !_isEditing,
                     decoration: InputDecoration(
                       labelText: "Họ và tên",
-                      labelStyle: const TextStyle(color: Colors.white),
-                      enabledBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey),
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: Colors.grey[900],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white12),
                       ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.blueAccent),
                       ),
                       disabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                            color: _isEditing ? Colors.grey : Colors.grey),
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white12),
                       ),
                     ),
                     style: const TextStyle(color: Colors.white),
@@ -235,16 +387,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     readOnly: !_isEditing,
                     decoration: InputDecoration(
                       labelText: "Số điện thoại",
-                      labelStyle: const TextStyle(color: Colors.white),
-                      enabledBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey),
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: Colors.grey[900],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white12),
                       ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.blueAccent),
                       ),
                       disabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                            color: _isEditing ? Colors.grey : Colors.grey),
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white12),
                       ),
                     ),
                     style: const TextStyle(color: Colors.white),
@@ -264,16 +420,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     readOnly: !_isEditing,
                     decoration: InputDecoration(
                       labelText: "Tiểu sử",
-                      labelStyle: const TextStyle(color: Colors.white),
-                      enabledBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey),
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: Colors.grey[900],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white12),
                       ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.blueAccent),
                       ),
                       disabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                            color: _isEditing ? Colors.grey : Colors.grey),
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.white12),
                       ),
                     ),
                     style: const TextStyle(color: Colors.white),
@@ -282,14 +442,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 24),
                   if (_isEditing)
                     _isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
                         : ElevatedButton(
                             onPressed: _saveProfile,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
+                              backgroundColor: Colors.blueAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 4,
                             ),
-                            child: const Text("Lưu"),
+                            child: const Text(
+                              "Lưu",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                 ],
               ),

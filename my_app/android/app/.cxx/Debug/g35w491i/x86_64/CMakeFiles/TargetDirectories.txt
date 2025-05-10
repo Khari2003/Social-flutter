@@ -1,0 +1,2 @@
+E:/TeamProject/Social-flutter/my_app/android/app/.cxx/Debug/g35w491i/x86_64/CMakeFiles/edit_cache.dir
+E:/TeamProject/Social-flutter/my_app/android/app/.cxx/Debug/g35w491i/x86_64/CMakeFiles/rebuild_cache.dir

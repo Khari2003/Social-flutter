@@ -37,6 +37,9 @@ dependencies:
   permission_handler: ^11.3.1
   flutter_compass: ^0.8.1
   photo_view: ^0.15.0
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  dotted_border: ^2.1.0
 
 dev_dependencies:
   flutter_test:

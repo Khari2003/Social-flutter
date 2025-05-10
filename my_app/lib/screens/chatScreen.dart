@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_app/components/chatbubble.dart';
 import 'package:my_app/components/textField.dart';
+import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupChatService.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -13,6 +14,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/model/group/posting.dart';
+import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String GroupId;
@@ -105,6 +107,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _recorder.closeRecorder();
     _audioPlayer.dispose();
     _messageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -185,73 +188,232 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Widget _buildSharedPostImages(List<dynamic> imageUrls) {
+    final urls = imageUrls.cast<String>();
+    if (urls.isEmpty) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ImageGalleryScreen(
+              imageUrls: urls,
+              initialIndex: 0,
+            ),
+          ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          urls[0], // Chỉ hiển thị ảnh đầu tiên
+          width: double.infinity,
+          height: 150,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: double.infinity,
+              height: 150,
+              color: Colors.grey[800],
+              child: const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: double.infinity,
+              height: 150,
+              color: Colors.grey[800],
+              child: const Icon(Icons.error, color: Colors.redAccent),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<Posting?> _fetchOriginalPost(String groupId, String postId) async {
+    try {
+      DocumentSnapshot postDoc = await FirebaseFirestore.instance
+          .collection('groups')
+          .doc(groupId)
+          .collection('posts')
+          .doc(postId)
+          .get();
+
+      if (!postDoc.exists) {
+        print("Post not found for postId: $postId in groupId: $groupId");
+        return null;
+      }
+
+      Map<String, dynamic> postData = postDoc.data() as Map<String, dynamic>;
+      return Posting(
+        postId: postId,
+        groupId: groupId,
+        userId: postData['userId'],
+        content: postData['content'],
+        videoUrl: postData['videoUrl'],
+        voiceChatUrl: postData['voiceChatUrl'],
+        imageUrls: postData['imageUrls'] != null
+            ? List<String>.from(postData['imageUrls'])
+            : null,
+        timestamp: postData['timestamp'],
+        comments: postData['comments'] != null
+            ? List<String>.from(postData['comments'])
+            : [],
+        likes: postData['likes'] != null
+            ? List<String>.from(postData['likes'])
+            : [],
+      );
+    } catch (e) {
+      print("Error fetching original post: $e");
+      return null;
+    }
+  }
+
   Widget _buildMessageItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data() as Map<String, dynamic>;
     var isSender = data['senderId'] == _firebaseAuth.currentUser!.uid;
 
     if (data['type'] == 'share_post') {
       return GestureDetector(
-        onTap: () {
+        onTap: () async {
+          // Lấy bài đăng gốc từ Firestore
+          Posting? originalPost = await _fetchOriginalPost(
+            data['originalGroupId'],
+            data['postId'],
+          );
+
+          if (originalPost == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Không thể tải bài đăng gốc!"),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+            return;
+          }
+
+          // Lấy trạng thái thích và số lượt thích từ Firestore
+          DocumentSnapshot postDoc = await FirebaseFirestore.instance
+              .collection('groups')
+              .doc(originalPost.groupId)
+              .collection('posts')
+              .doc(originalPost.postId)
+              .get();
+
+          List<String> likes = List<String>.from(postDoc['likes'] ?? []);
+          bool isLiked = likes.contains(_firebaseAuth.currentUser!.uid);
+          int likeCount = likes.length;
+
+          // Chuyển đến PostDetailScreen với bài đăng gốc
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => PostDetailScreen(
-                post: Posting(
-                  postId: data['postId'],
-                  groupId: data['originalGroupId'],
-                  userId: data['senderId'],
-                  content: data['message'],
-                  videoUrl: data['videoUrl'],
-                  imageUrls: data['imageUrls'] != null ? List<String>.from(data['imageUrls']) : null,
-                  timestamp: data['timestamp'] ?? Timestamp.now(),
-                  comments: [],
-                ),
-                isLiked: false,
-                likeCount: 0,
-                isSaved: false,
+                post: originalPost,
+                isLiked: isLiked,
+                likeCount: likeCount,
+                isSaved: false, // Bạn có thể kiểm tra trạng thái saved nếu cần
                 postService: GroupPostingService(),
-                toggleLike: () {},
-                toggleSave: () {},
+                toggleLike: () {
+                  GroupPostingService()
+                      .likePost(originalPost.groupId, originalPost.postId);
+                },
+                toggleSave: () async {
+                  try {
+                    List<String> savedPosts = await Authservice().getSavedPosts();
+                    bool isSaved = savedPosts.contains(originalPost.postId);
+                    if (isSaved) {
+                      await Authservice().unsavePost(originalPost.postId);
+                    } else {
+                      await Authservice().savePost(originalPost.postId);
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lỗi khi lưu bài đăng: $e'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  }
+                },
               ),
             ),
           );
         },
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.all(8),
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF3A3A3A),
-            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              colors: [Colors.blueGrey.shade800, Colors.blueGrey.shade900],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.share,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bài đăng được chia sẻ',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Text(
-                data['message'],
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                data['message'] ?? '',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
               if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      data['imageUrls'][0],
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _buildSharedPostImages(data['imageUrls']),
                 ),
               if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Container(
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
                       color: Colors.grey[800],
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: const Center(
                       child: Icon(
@@ -262,6 +424,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 8),
+              Text(
+                'Nhấn để xem chi tiết',
+                style: TextStyle(
+                  color: Colors.blueAccent.shade100,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ],
           ),
         ),
