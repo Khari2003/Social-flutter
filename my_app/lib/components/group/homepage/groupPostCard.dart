@@ -11,6 +11,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:my_app/services/group/groupChatService.dart';
 import 'package:my_app/services/group/groupService.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 class GroupPostCard extends StatefulWidget {
   final Posting post;
@@ -122,12 +124,10 @@ class _GroupPostCardState extends State<GroupPostCard> {
     final GroupChatService chatService = GroupChatService();
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-    // Lấy danh sách nhóm của người dùng
     final userGroupsStream = groupService.getUserGroups();
     final userGroups =
         await userGroupsStream.first.then((snapshot) => snapshot.docs);
 
-    // Lấy danh sách người dùng đã nhắn tin (từ collection private chats)
     final privateChatsSnapshot = await FirebaseFirestore.instance
         .collection('private_chats')
         .where('users', arrayContains: currentUserId)
@@ -146,7 +146,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
       return;
     }
 
-    // Hiển thị danh sách nhóm và người dùng
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -156,7 +155,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              // Danh sách nhóm
               if (userGroups.isNotEmpty) ...[
                 const Text("Nhóm",
                     style: TextStyle(fontWeight: FontWeight.bold)),
@@ -174,13 +172,12 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                 ? widget.post.imageUrls!.first
                                 : null;
                         String? shareVideo = widget.post.videoUrl;
-                        // print("videoURL${shareVideo}");
                         await chatService.sendSharePostMessage(
                           groupId,
                           widget.post.postId,
                           widget.post.groupId,
                           shareContent,
-                          shareVideo ,
+                          shareVideo,
                           shareImage,
                           postOwnerName: email ?? 'Ẩn danh',
                         );
@@ -198,7 +195,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
                 }).toList(),
                 const Divider(),
               ],
-              // Danh sách người dùng
               if (privateChatUsers.isNotEmpty) ...[
                 const Text("Người dùng",
                     style: TextStyle(fontWeight: FontWeight.bold)),
@@ -224,8 +220,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                               shareContent,
                               sharedImages:
                                   shareImage != null ? [shareImage] : null,
-                              videoUrl:
-                                  shareVideo, // Pass videoUrl for shared post
+                              videoUrl: shareVideo,
                               postOwnerName: email ?? 'Ẩn danh',
                               type: 'share_post',
                               postId: widget.post.postId,
@@ -275,6 +270,73 @@ class _GroupPostCardState extends State<GroupPostCard> {
     }
   }
 
+  void _showImageGallery(BuildContext context, List<String> imageUrls, int initialIndex) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            PhotoViewGallery.builder(
+              itemCount: imageUrls.length,
+              builder: (context, index) {
+                return PhotoViewGalleryPageOptions(
+                  imageProvider: NetworkImage(imageUrls[index]),
+                  minScale: PhotoViewComputedScale.contained,
+                  maxScale: PhotoViewComputedScale.covered * 2,
+                  heroAttributes: PhotoViewHeroAttributes(tag: imageUrls[index]),
+                );
+              },
+              scrollPhysics: const BouncingScrollPhysics(),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              pageController: PageController(initialPage: initialIndex),
+              onPageChanged: (index) {},
+            ),
+            Positioned(
+              top: 40,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(String imageUrl, double width, double height) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: width,
+            height: height,
+            color: Colors.grey[800],
+            child: const Center(
+                child: CircularProgressIndicator(color: Colors.blueAccent)),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: width,
+            height: height,
+            color: Colors.grey[800],
+            child: const Icon(Icons.error, color: Colors.redAccent),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -320,7 +382,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                   child: Row(
@@ -399,7 +460,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
                     ],
                   ),
                 ),
-                // Content
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -409,61 +469,108 @@ class _GroupPostCardState extends State<GroupPostCard> {
                         fontSize: 15, color: Colors.white, height: 1.4),
                   ),
                 ),
-                // Media
                 if (widget.post.imageUrls != null &&
                     widget.post.imageUrls!.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(0),
+                  GestureDetector(
+                    onTap: () {
+                      _showImageGallery(context, widget.post.imageUrls!, 0);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          return Image.network(
-                            widget.post.imageUrls!.first,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) {
-                                return FutureBuilder<Size>(
-                                  future: _getImageSize(
-                                      widget.post.imageUrls!.first),
-                                  builder: (context, snapshot) {
-                                    if (snapshot.hasData) {
-                                      final size = snapshot.data!;
-                                      final aspectRatio =
-                                          size.height / size.width;
-                                      final height =
-                                          aspectRatio > 1.2 ? 500.0 : 300.0;
-                                      return Container(
-                                          height: height, child: child);
-                                    }
-                                    return Container(
-                                      height: 300,
-                                      color: Colors.grey[800],
-                                      child: const Center(
-                                          child: CircularProgressIndicator(
-                                              color: Colors.blueAccent)),
-                                    );
-                                  },
-                                );
-                              }
-                              return Container(
-                                height: 300,
-                                color: Colors.grey[800],
-                                child: const Center(
-                                    child: CircularProgressIndicator(
-                                        color: Colors.blueAccent)),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                height: 300,
-                                color: Colors.grey[800],
-                                child: const Icon(Icons.error,
-                                    color: Colors.redAccent),
-                              );
-                            },
-                          );
+                          final imageCount = widget.post.imageUrls!.length;
+                          final totalWidth = constraints.maxWidth;
+
+                          if (imageCount == 1) {
+                            // Case 1: Single image, full-width like original
+                            return FutureBuilder<Size>(
+                              future: _getImageSize(widget.post.imageUrls!.first),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  final size = snapshot.data!;
+                                  final aspectRatio = size.height / size.width;
+                                  final height = aspectRatio > 1.2 ? 500.0 : 300.0;
+                                  return _buildImageWidget(
+                                      widget.post.imageUrls!.first, double.infinity, height);
+                                }
+                                return _buildImageWidget(
+                                    widget.post.imageUrls!.first, double.infinity, 300);
+                              },
+                            );
+                          } else if (imageCount == 2) {
+                            // Case 2: Two images side by side
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _buildImageWidget(
+                                      widget.post.imageUrls![0], double.infinity, 200),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: _buildImageWidget(
+                                      widget.post.imageUrls![1], double.infinity, 200),
+                                ),
+                              ],
+                            );
+                          } else {
+                            // Case 3: Three or more images
+                            final remainingImages = imageCount - 2; // For "See More"
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // First image (left side, full height)
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildImageWidget(
+                                      widget.post.imageUrls![0], double.infinity, 300),
+                                ),
+                                const SizedBox(width: 4),
+                                // Right side: Stack remaining images vertically
+                                Expanded(
+                                  flex: 1,
+                                  child: Column(
+                                    children: [
+                                      // Second image
+                                      _buildImageWidget(
+                                          widget.post.imageUrls![1], double.infinity, 148),
+                                      const SizedBox(height: 4),
+                                      // Third image or "See More"
+                                      Stack(
+                                        children: [
+                                          _buildImageWidget(
+                                              widget.post.imageUrls!.length > 2
+                                                  ? widget.post.imageUrls![2]
+                                                  : widget.post.imageUrls![1],
+                                              double.infinity,
+                                              148),
+                                          if (remainingImages > 1) // Show "See More" if more than 3 images
+                                            Positioned.fill(
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.5),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: const Center(
+                                                  child: Text(
+                                                    'Xem thêm',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
                         },
                       ),
                     ),
@@ -478,13 +585,11 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           limitHeight: true),
                     ),
                   ),
-                // Actions
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Like Button
                       InkWell(
                         onTap: toggleLike,
                         borderRadius: BorderRadius.circular(10),
@@ -517,7 +622,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           ),
                         ),
                       ),
-                      // Comment Button
                       InkWell(
                         onTap: () => showModalBottomSheet(
                           backgroundColor: const Color(0xFF2A2A2A),
@@ -573,13 +677,11 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           ),
                         ),
                       ),
-                      // Share Button
                       IconButton(
                         icon: Icon(Icons.share,
                             color: Colors.grey[500], size: 22),
                         onPressed: _sharePost,
                       ),
-                      // Save Button
                       IconButton(
                         icon: Icon(
                           isSaved ? Icons.bookmark : Icons.bookmark_border,
