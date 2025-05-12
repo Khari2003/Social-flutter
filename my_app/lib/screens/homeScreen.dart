@@ -274,7 +274,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                             final filteredPosts = _searchQuery.isEmpty
                                 ? posts
                                 : posts.where((post) {
-                                    final content = post.content?.toLowerCase() ?? '';
+                                    final content = post.content.toLowerCase();
                                     print('Checking post content: $content'); // Debug nội dung
                                     return content.contains(_searchQuery);
                                   }).toList();
@@ -289,9 +289,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                   valueListenable: widget.showNavBar,
                                   builder: (context, showNavBarValue, child) {
                                     return AnimatedPadding(
-                                      duration: const Duration(milliseconds: 300),
+                                      duration: const Duration(milliseconds: 200),
                                       padding: EdgeInsets.only(
-                                        top: showNavBarValue ? 40 : 0,
+                                        top: showNavBarValue ? 65 : 0,
                                       ),
                                       child: Row(
                                         children: [
@@ -387,7 +387,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                   )
                                 else
                                   ...filteredPosts.map((post) => Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                                         child: GroupPostCard(
                                           post: post,
                                           postService: _groupPostingService,

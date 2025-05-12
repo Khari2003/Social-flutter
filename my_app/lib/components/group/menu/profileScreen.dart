@@ -268,7 +268,7 @@ class ProfileScreen extends StatelessWidget {
                         opacity: 1.0,
                         duration: const Duration(milliseconds: 300),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                           child: GroupPostCard(
                             post: Posting.fromMap(data),
                             postService: postService,

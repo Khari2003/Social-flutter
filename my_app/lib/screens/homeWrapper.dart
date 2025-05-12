@@ -311,34 +311,39 @@ class _HomeWrapperState extends State<HomeWrapper> {
               });
             },
           ),
-
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            bottom: _showNavBar.value ? 0 : -70,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                border: const Border(
-                  top: BorderSide(
-                    color: Color.fromARGB(255, 39, 41, 42),
-                    width: 1.0,
+          //bottomBar
+          ValueListenableBuilder<bool>(
+              valueListenable: _showNavBar,
+              builder: (context, showNavBar, child) {
+                return AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  bottom: _showNavBar.value ? 0 : -70,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      border: const Border(
+                        top: BorderSide(
+                          color: Color.fromARGB(255, 39, 41, 42),
+                          width: 1.0,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildNavItem(icon: Icons.home, index: 0),
+                        _buildNavItem(icon: Icons.play_circle, index: 1),
+                        _buildNavItem(icon: Icons.menu, index: 2),
+                        _buildNavItem(icon: Icons.map, index: 3),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavItem(icon: Icons.home, index: 0),
-                  _buildNavItem(icon: Icons.play_circle, index: 1),
-                  _buildNavItem(icon: Icons.menu, index: 2),
-                  _buildNavItem(icon: Icons.map, index: 3),
-                ],
-              ),
-            ),
-          ),
+                );
+              }),
+          //SideBar
           AnimatedPositioned(
             duration: const Duration(milliseconds: 400),
             left: _isSidebarOpen ? 0 : -MediaQuery.of(context).size.width * 0.8,
@@ -346,7 +351,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
             bottom: 0,
             child: Container(
               width: MediaQuery.of(context).size.width * 0.8,
-              color: Colors.black87,
+              color: Colors.black,
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,17 +408,21 @@ class _HomeWrapperState extends State<HomeWrapper> {
             ),
           ),
           //TopApBar
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            top: _showNavBar.value ? 0 : -70,
-            left: 0,
-            right: 0,
-            child: TopAppBarWidget(
-                onCreateGroup: _createGroup,
-                onJoinGroup: _joinGroup,
-                signOut: signOut,
-                userGroupsIsNotEmpty: userGroups.value.isNotEmpty),
-          ),
+          ValueListenableBuilder<bool>(
+              valueListenable: _showNavBar,
+              builder: (context, showNavBar, child) {
+                return AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  top: _showNavBar.value ? 0 : -70,
+                  left: 0,
+                  right: 0,
+                  child: TopAppBarWidget(
+                      onCreateGroup: _createGroup,
+                      onJoinGroup: _joinGroup,
+                      signOut: signOut,
+                      userGroupsIsNotEmpty: userGroups.value.isNotEmpty),
+                );
+              }),
           // Nút mở Sidebar (cố định bên trái)
           if (_currentIndex.value != 2)
             AnimatedPositioned(

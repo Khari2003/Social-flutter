@@ -85,9 +85,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           widget.post.postId,
           _commentController.text,
         );
-        setState(() {
-          widget.post.comments.add(_commentController.text);
-        });
         _commentController.clear();
       } catch (e) {
         print("Lỗi khi gửi bình luận: $e");
@@ -333,12 +330,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
 
             // Bình luận
-            buildCommentSection(widget.post, context,
-                isComment: false, isfullheight: false),
+            buildCommentSection(
+              widget.post,
+              context,
+              isComment: false,
+              isfullheight: false,
+              commentStream: widget.postService
+                  .getComments(widget.post.groupId, widget.post.postId),
+            ),
           ],
         ),
       ),
       bottomNavigationBar: buildCommentInput(
+        context: context,
         controller: _commentController,
         isCommenting: isCommenting,
         addComment: addComment,

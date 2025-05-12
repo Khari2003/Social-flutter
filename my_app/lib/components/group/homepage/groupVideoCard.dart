@@ -133,7 +133,6 @@ class _GroupVideoCardState extends State<GroupVideoCard>
           widget.post.postId,
           _commentController.text,
         );
-        widget.post.comments.add(_commentController.text);
         _commentController.clear();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -220,7 +219,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                         const SizedBox(height: 12),
                         IconButton(
                           onPressed: () => showModalBottomSheet(
-                            backgroundColor: const Color(0xFF3A3A3A),
+                            backgroundColor: const Color(0xFF2A2A2A),
                             context: context,
                             isScrollControlled: true,
                             shape: const RoundedRectangleBorder(
@@ -249,6 +248,9 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                                         toggleLike();
                                         setModalState(() {});
                                       },
+                                      commentStream: widget.postService.getComments(
+                                        widget.post.groupId,
+                                        widget.post.postId),
                                     );
                                   },
                                 );

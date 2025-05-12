@@ -27,7 +27,7 @@ class GroupPostCard extends StatefulWidget {
   _GroupPostCardState createState() => _GroupPostCardState();
 }
 
-class _GroupPostCardState extends State<GroupPostCard>  with AutomaticKeepAliveClientMixin {
+class _GroupPostCardState extends State<GroupPostCard> {
   final TextEditingController _commentController = TextEditingController();
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final Authservice auth = Authservice();
@@ -36,9 +36,6 @@ class _GroupPostCardState extends State<GroupPostCard>  with AutomaticKeepAliveC
   String? avatarUrl;
   bool isSaved = false;
   bool isLoadingAvatar = true;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -138,7 +135,6 @@ class _GroupPostCardState extends State<GroupPostCard>  with AutomaticKeepAliveC
           widget.post.postId,
           _commentController.text,
         );
-        widget.post.comments.add(_commentController.text);
         _commentController.clear();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -583,6 +579,9 @@ class _GroupPostCardState extends State<GroupPostCard>  with AutomaticKeepAliveC
                                       toggleLike();
                                       setModalState(() {});
                                     },
+                                    commentStream: widget.postService
+                                        .getComments(widget.post.groupId,
+                                            widget.post.postId),
                                   );
                                 },
                               );

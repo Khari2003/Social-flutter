@@ -159,8 +159,7 @@ class GroupPostingService extends ChangeNotifier {
   }
 
   //Lấy danh sách bình luận
-  Stream<List<Map<String, dynamic>>> getComments(
-      String groupId, String postId) {
+  Stream<List<String>> getComments(String groupId, String postId) {
     return _fireStore
         .collection('groups')
         .doc(groupId)
@@ -170,7 +169,7 @@ class GroupPostingService extends ChangeNotifier {
         .map((snapshot) {
       if (!snapshot.exists || snapshot.data() == null) return [];
       var data = snapshot.data() as Map<String, dynamic>;
-      return List<Map<String, dynamic>>.from(data['comments'] ?? []);
+      return List<String>.from(data['comments'] ?? []);
     });
   }
 
