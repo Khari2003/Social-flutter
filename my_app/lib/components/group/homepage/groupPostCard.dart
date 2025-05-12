@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:my_app/components/group/homepage/share_post_dialog.dart';
+import 'package:my_app/components/group/menu/ProfileScreen.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/services/auth/authService.dart';
@@ -8,6 +11,8 @@ import 'package:my_app/model/group/posting.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
+
 
 class GroupPostCard extends StatefulWidget {
   final Posting post;
@@ -28,23 +33,39 @@ class _GroupPostCardState extends State<GroupPostCard> {
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final Authservice auth = Authservice();
   String? email;
+  String? avatarUrl;
   bool isSaved = false;
+  bool isLoadingAvatar = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchEmail();
+    _fetchUserData();
     _checkSavedStatus();
   }
 
-  Future<void> _fetchEmail() async {
-    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
-    setState(() {
-      email = fetchedEmail;
-      email = email != null && email!.contains('@')
-          ? email!.split('@')[0]
-          : email ?? 'Ẩn danh';
-    });
+  Future<void> _fetchUserData() async {
+    try {
+      print("Fetching user data for userId: ${widget.post.userId}");
+      final user = await auth.getUserById(widget.post.userId);
+      print("User data fetched: $user");
+      setState(() {
+        email = user?.userEmail;
+        email = email != null && email!.contains('@')
+            ? email!.split('@')[0]
+            : user?.fullName ?? 'Ẩn danh';
+        avatarUrl = user?.avatarUrl;
+        isLoadingAvatar = false;
+        print("Avatar URL: $avatarUrl");
+      });
+    } catch (e) {
+      print("Error fetching user data: $e");
+      setState(() {
+        email = 'Ẩn danh';
+        avatarUrl = null;
+        isLoadingAvatar = false;
+      });
+    }
   }
 
   Future<void> _checkSavedStatus() async {
@@ -144,6 +165,80 @@ class _GroupPostCardState extends State<GroupPostCard> {
     }
   }
 
+  void _showImageGallery(BuildContext context, List<String> imageUrls, int initialIndex) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ImageGalleryScreen(
+          imageUrls: imageUrls,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(String imageUrl, double width, double height) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          width: width,
+          height: height,
+          color: Colors.grey[800],
+          child: const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
+        ),
+        errorWidget: (context, url, error) => Container(
+          width: width,
+          height: height,
+          color: Colors.grey[800],
+          child: const Icon(Icons.error, color: Colors.redAccent),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    if (isLoadingAvatar) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: Colors.grey[800],
+        child: const CircularProgressIndicator(
+          color: Colors.blueAccent,
+          strokeWidth: 2,
+        ),
+      );
+    }
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: Colors.grey[800],
+      child: avatarUrl != null
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const CircularProgressIndicator(
+                  color: Colors.blueAccent,
+                  strokeWidth: 2,
+                ),
+                errorWidget: (context, url, error) => const Icon(
+                  Icons.person_outline,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            )
+          : const Icon(
+              Icons.person_outline,
+              color: Colors.white,
+              size: 24,
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -183,22 +278,28 @@ class _GroupPostCardState extends State<GroupPostCard> {
           child: Card(
             color: const Color(0xFF2A2A2A),
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.grey[800],
-                        child: const Icon(Icons.person_outline,
-                            color: Colors.white, size: 24),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(
+                                userId: widget.post.userId,
+                                groupId: widget.post.groupId,
+                              ),
+                            ),
+                          );
+                        },
+                        child: _buildAvatar(),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -216,15 +317,13 @@ class _GroupPostCardState extends State<GroupPostCard> {
                             ),
                             Text(
                               formatTimestamp(widget.post.timestamp.toDate()),
-                              style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[500]),
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                             ),
                           ],
                         ),
                       ),
                       PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_horiz,
-                            color: Colors.white, size: 22),
+                        icon: const Icon(Icons.more_horiz, color: Colors.white, size: 22),
                         color: const Color(0xFF3A3A3A),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
@@ -232,12 +331,18 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           if (value == 'delete' &&
                               widget.post.userId ==
                                   FirebaseAuth.instance.currentUser!.uid) {
-                            deletePost();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: Colors.redAccent,
+                                content: Text(
+                                    'Chức năng xóa bài đăng chưa được triển khai',
+                                    style: TextStyle(color: Colors.white)),
+                              ),
+                            );
                           }
                         },
                         itemBuilder: (context) => [
-                          if (widget.post.userId ==
-                              FirebaseAuth.instance.currentUser!.uid)
+                          if (widget.post.userId == FirebaseAuth.instance.currentUser!.uid)
                             PopupMenuItem<String>(
                               value: 'delete',
                               child: Text('Xóa bài đăng',
@@ -248,109 +353,150 @@ class _GroupPostCardState extends State<GroupPostCard> {
                     ],
                   ),
                 ),
-                // Content
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Text(
                     widget.post.content,
-                    style: const TextStyle(
-                        fontSize: 15, color: Colors.white, height: 1.4),
+                    style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.4),
                   ),
                 ),
-                // Media
-                if (widget.post.imageUrls != null &&
-                    widget.post.imageUrls!.isNotEmpty)
+                if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(0),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Image.network(
-                            widget.post.imageUrls!.first,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) {
-                                return FutureBuilder<Size>(
-                                  future: _getImageSize(
-                                      widget.post.imageUrls!.first),
-                                  builder: (context, snapshot) {
-                                    if (snapshot.hasData) {
-                                      final size = snapshot.data!;
-                                      final aspectRatio =
-                                          size.height / size.width;
-                                      final height =
-                                          aspectRatio > 1.2 ? 500.0 : 300.0;
-                                      return Container(
-                                        height: height,
-                                        child: child,
-                                      );
-                                    }
-                                    return Container(
-                                      height: 300,
-                                      color: Colors.grey[800],
-                                      child: const Center(
-                                          child: CircularProgressIndicator(
-                                              color: Colors.blueAccent)),
-                                    );
-                                  },
-                                );
-                              }
-                              return Container(
-                                height: 300,
-                                color: Colors.grey[800],
-                                child: const Center(
-                                    child: CircularProgressIndicator(
-                                        color: Colors.blueAccent)),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                height: 300,
-                                color: Colors.grey[800],
-                                child: const Icon(Icons.error,
-                                    color: Colors.redAccent),
-                              );
-                            },
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final imageCount = widget.post.imageUrls!.length;
+                        final totalWidth = constraints.maxWidth;
+
+                        if (imageCount == 1) {
+                          return GestureDetector(
+                            onTap: () => _showImageGallery(context, widget.post.imageUrls!, 0),
+                            child: FutureBuilder<Size>(
+                              future: _getImageSize(widget.post.imageUrls!.first),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  final size = snapshot.data!;
+                                  final aspectRatio = size.height / size.width;
+                                  final height = aspectRatio > 1.2 ? 500.0 : 300.0;
+                                  return _buildImageWidget(
+                                      widget.post.imageUrls!.first, double.infinity, height);
+                                }
+                                return _buildImageWidget(
+                                    widget.post.imageUrls!.first, double.infinity, 300);
+                              },
+                            ),
                           );
-                        },
-                      ),
+                        } else if (imageCount == 2) {
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _showImageGallery(context, widget.post.imageUrls!, 0),
+                                  child: _buildImageWidget(
+                                      widget.post.imageUrls![0], double.infinity, 200),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _showImageGallery(context, widget.post.imageUrls!, 1),
+                                  child: _buildImageWidget(
+                                      widget.post.imageUrls![1], double.infinity, 200),
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          final remainingImages = imageCount - 2;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: GestureDetector(
+                                  onTap: () => _showImageGallery(context, widget.post.imageUrls!, 0),
+                                  child: _buildImageWidget(
+                                      widget.post.imageUrls![0], double.infinity, 300),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => _showImageGallery(context, widget.post.imageUrls!, 1),
+                                      child: _buildImageWidget(
+                                          widget.post.imageUrls![1], double.infinity, 148),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Stack(
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () => _showImageGallery(context, widget.post.imageUrls!, 2),
+                                          child: _buildImageWidget(
+                                              widget.post.imageUrls!.length > 2
+                                                  ? widget.post.imageUrls![2]
+                                                  : widget.post.imageUrls![1],
+                                              double.infinity,
+                                              148),
+                                        ),
+                                        if (remainingImages > 1)
+                                          Positioned.fill(
+                                            child: GestureDetector(
+                                              onTap: () => _showImageGallery(context, widget.post.imageUrls!, 2),
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.5),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: const Center(
+                                                  child: Text(
+                                                    'Xem thêm',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      },
                     ),
                   ),
                 if (widget.post.videoUrl != null)
                   Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: buildVideoPreview(context, widget.post.videoUrl!,
-                          limitHeight: true),
+                      child: buildVideoPreview(context, widget.post.videoUrl!, limitHeight: true),
                     ),
                   ),
-                // Actions
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Like Button
                       InkWell(
                         onTap: toggleLike,
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           child: Row(
                             children: [
                               Icon(
-                                isLiked
-                                    ? Icons.thumb_up
-                                    : Icons.thumb_up_off_alt,
-                                color: isLiked
-                                    ? Colors.blueAccent
-                                    : Colors.grey[500],
+                                isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
+                                color: isLiked ? Colors.blueAccent : Colors.grey[500],
                                 size: 22,
                               ),
                               const SizedBox(width: 6),
@@ -358,9 +504,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                 likeCount > 0 ? '$likeCount' : '',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: isLiked
-                                      ? Colors.blueAccent
-                                      : Colors.grey[400],
+                                  color: isLiked ? Colors.blueAccent : Colors.grey[400],
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -368,15 +512,13 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           ),
                         ),
                       ),
-                      // Comment Button
                       InkWell(
                         onTap: () => showModalBottomSheet(
                           backgroundColor: const Color(0xFF2A2A2A),
                           context: context,
                           isScrollControlled: true,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(16))),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
                           builder: (context) => StatefulBuilder(
                             builder: (context, setModalState) {
                               return DraggableScrollableSheet(
@@ -406,12 +548,10 @@ class _GroupPostCardState extends State<GroupPostCard> {
                         ),
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           child: Row(
                             children: [
-                              Icon(Icons.comment,
-                                  color: Colors.grey[500], size: 22),
+                              Icon(Icons.comment, color: Colors.grey[500], size: 22),
                               const SizedBox(width: 6),
                               Text(
                                 'Bình luận',
@@ -424,13 +564,20 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           ),
                         ),
                       ),
-                      // Share Button
                       IconButton(
-                        icon: Icon(Icons.share,
-                            color: Colors.grey[500], size: 22),
-                        onPressed: null,
+                        icon: Icon(Icons.share, color: Colors.grey[500], size: 22),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => SharePostWidget(
+                              post: widget.post,
+                              postOwnerName: email ?? 'Ẩn danh',
+                            ),
+                          );
+                        },
                       ),
-                      // Save Button
                       IconButton(
                         icon: Icon(
                           isSaved ? Icons.bookmark : Icons.bookmark_border,
@@ -456,10 +603,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
     image.image.resolve(const ImageConfiguration()).addListener(
           ImageStreamListener(
             (ImageInfo info, bool synchronousCall) {
-              completer.complete(Size(
-                info.image.width.toDouble(),
-                info.image.height.toDouble(),
-              ));
+              completer.complete(
+                  Size(info.image.width.toDouble(), info.image.height.toDouble()));
             },
             onError: (exception, stackTrace) {
               completer.complete(const Size(1, 1));
