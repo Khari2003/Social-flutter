@@ -11,12 +11,12 @@ import 'dart:io';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart' as audioplayers;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
-import 'package:my_app/components/group/post/postWidget.dart'; 
+import 'package:my_app/components/group/post/postWidget.dart';
 
 class ChatScreen extends StatefulWidget {
   final String GroupId;
@@ -41,50 +41,67 @@ class _ChatScreenState extends State<ChatScreen> {
   final GroupChatService _chatService = GroupChatService();
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final ImagePicker _picker = ImagePicker();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final audioplayers.AudioPlayer _audioPlayer = audioplayers.AudioPlayer();
   FlutterSoundRecorder _recorder = FlutterSoundRecorder();
   final ScrollController _scrollController = ScrollController();
-  List<File> _selectedImages = [];
-  List<File> _voiceFiles = [];
-  bool isRecording = false;
+  final ValueNotifier<List<File>> _selectedImages = ValueNotifier([]);
+  final ValueNotifier<List<File>> _voiceFiles = ValueNotifier([]);
+  final ValueNotifier<bool> _isRecording = ValueNotifier(false);
   String? _audioPath;
+  final ValueNotifier<bool> _isAudioPlaying = ValueNotifier(false);
+  String? _currentAudioUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // Lắng nghe trạng thái phát của audio
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (state == audioplayers.PlayerState.playing) {
+        _isAudioPlaying.value = true;
+      } else if (state == audioplayers.PlayerState.paused ||
+          state == audioplayers.PlayerState.stopped) {
+        _isAudioPlaying.value = false;
+      } else if (state == audioplayers.PlayerState.completed) {
+        _isAudioPlaying.value = false;
+        _currentAudioUrl = null;
+        _audioPlayer.stop();
+      }
+    });
+  }
 
   void sendMessage() async {
     if (_messageController.text.isNotEmpty ||
-        _selectedImages.isNotEmpty ||
-        _voiceFiles.isNotEmpty) {
+        _selectedImages.value.isNotEmpty ||
+        _voiceFiles.value.isNotEmpty) {
       if (widget.type == "group") {
         await _chatService.sendGroupMessage(
             widget.GroupId, _messageController.text,
-            images: _selectedImages, voices: _voiceFiles);
+            images: _selectedImages.value, voices: _voiceFiles.value);
       } else if (widget.type == "private") {
         await _chatService.sendPrivateMessage(
             widget.GroupId, widget.receiverUserID, _messageController.text,
-            images: _selectedImages, voices: _voiceFiles);
+            images: _selectedImages.value, voices: _voiceFiles.value);
       }
       _messageController.clear();
-      setState(() {
-        _selectedImages.clear();
-        _voiceFiles.clear();
-      });
+      _selectedImages.value = [];
+      _voiceFiles.value = [];
     }
   }
 
   Future<void> pickImages() async {
     final List<XFile>? pickedFiles = await _picker.pickMultiImage();
     if (pickedFiles != null) {
-      setState(() {
-        _selectedImages = pickedFiles.map((file) => File(file.path)).toList();
-      });
+      _selectedImages.value =
+          pickedFiles.map((file) => File(file.path)).toList();
     }
   }
 
   void _toggleRecording() async {
-    if (!isRecording) {
+    if (!_isRecording.value) {
       var status = await Permission.microphone.request();
       if (status.isGranted) {
         await _recorder.openRecorder();
-        setState(() => isRecording = true);
+        _isRecording.value = true;
         final dir = await getApplicationDocumentsDirectory();
         _audioPath =
             '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.aac';
@@ -94,12 +111,38 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } else {
       await _recorder.stopRecorder();
-      setState(() {
-        isRecording = false;
-        if (_audioPath != null) {
-          _voiceFiles.add(File(_audioPath!));
+      _isRecording.value = false;
+      if (_audioPath != null) {
+        _voiceFiles.value = [..._voiceFiles.value, File(_audioPath!)];
+      }
+    }
+  }
+
+  Future<void> _toggleAudioPlayback(String audioUrl) async {
+    try {
+      if (_isAudioPlaying.value && _currentAudioUrl == audioUrl) {
+        // Nếu đang phát audio này, tạm dừng
+        await _audioPlayer.pause();
+        _isAudioPlaying.value = false;
+      } else {
+        // Nếu đang phát audio khác, dừng audio hiện tại
+        if (_currentAudioUrl != null && _currentAudioUrl != audioUrl) {
+          await _audioPlayer.stop();
+          _isAudioPlaying.value = false;
         }
-      });
+        // Phát audio mới
+        await _audioPlayer.play(audioplayers.UrlSource(audioUrl));
+        _isAudioPlaying.value = true;
+        _currentAudioUrl = audioUrl;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Lỗi khi phát audio: $e',
+              style: const TextStyle(color: Colors.white)),
+        ),
+      );
     }
   }
 
@@ -109,6 +152,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _audioPlayer.dispose();
     _messageController.dispose();
     _scrollController.dispose();
+    _isAudioPlaying.dispose();
+    _isRecording.dispose();
+    _selectedImages.dispose();
+    _voiceFiles.dispose();
     super.dispose();
   }
 
@@ -131,8 +178,22 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(child: _buildMessageList()),
-          if (_selectedImages.isNotEmpty) _buildImagePreview(),
-          if (_voiceFiles.isNotEmpty) _buildVoicePreview(),
+          ValueListenableBuilder<List<File>>(
+            valueListenable: _selectedImages,
+            builder: (context, images, child) {
+              return images.isNotEmpty
+                  ? _buildImagePreview()
+                  : const SizedBox.shrink();
+            },
+          ),
+          ValueListenableBuilder<List<File>>(
+            valueListenable: _voiceFiles,
+            builder: (context, voices, child) {
+              return voices.isNotEmpty
+                  ? _buildVoicePreview()
+                  : const SizedBox.shrink();
+            },
+          ),
           _buildMessageInput(),
           const SizedBox(height: 16),
         ],
@@ -169,6 +230,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
         return ListView.builder(
           controller: _scrollController,
+          cacheExtent: 10000,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
@@ -337,14 +399,10 @@ class _ChatScreenState extends State<ChatScreen> {
           );
         },
         child: Row(
-          mainAxisAlignment: isSender
-              ? MainAxisAlignment.end
-              : MainAxisAlignment
-                  .start, 
+          mainAxisAlignment:
+              isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
-            if (!isSender)
-              const SizedBox(
-                  width: 12), 
+            if (!isSender) const SizedBox(width: 12),
             ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width *
@@ -492,20 +550,36 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (data['voiceChatUrl'] != null)
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            await _audioPlayer
-                                .play(UrlSource(data['voiceChatUrl']));
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _isAudioPlaying,
+                          builder: (context, isPlaying, child) {
+                            final isCurrentAudio =
+                                _currentAudioUrl == data['voiceChatUrl'];
+                            return ElevatedButton.icon(
+                              onPressed: () async {
+                                await _toggleAudioPlayback(
+                                    data['voiceChatUrl']);
+                              },
+                              icon: Icon(
+                                isPlaying && isCurrentAudio
+                                    ? Icons.pause
+                                    : Icons.play_arrow,
+                                size: 20,
+                              ),
+                              label: Text(
+                                isPlaying && isCurrentAudio
+                                    ? 'Pause Audio'
+                                    : 'Play Audio',
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF3A3A3A),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
                           },
-                          icon: const Icon(Icons.play_arrow, size: 20),
-                          label: const Text('Play Audio'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3A3A3A),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ),
                     if (data['imageUrls'] != null &&
@@ -590,96 +664,115 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildImagePreview() {
-    return Container(
-      height: 100,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _selectedImages.length,
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[800]!, width: 1),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    _selectedImages[index],
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedImages.removeAt(index);
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
+    return ValueListenableBuilder<List<File>>(
+      valueListenable: _selectedImages,
+      builder: (context, images, child) {
+        return Container(
+          height: 100,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            itemBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[800]!, width: 1),
                     ),
-                    child:
-                        const Icon(Icons.close, color: Colors.white, size: 18),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        images[index],
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: GestureDetector(
+                      onTap: () {
+                        _selectedImages.value = List.from(images)
+                          ..removeAt(index);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _buildVoicePreview() {
-    return Container(
-      height: 60,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _voiceFiles.length,
-        itemBuilder: (context, index) {
-          return Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF3A3A3A),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.play_arrow, color: Colors.blueAccent),
-                  onPressed: () async {
-                    await _audioPlayer
-                        .play(DeviceFileSource(_voiceFiles[index].path));
-                  },
+    return ValueListenableBuilder<List<File>>(
+      valueListenable: _voiceFiles,
+      builder: (context, voices, child) {
+        return Container(
+          height: 60,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: voices.length,
+            itemBuilder: (context, index) {
+              return Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3A3A3A),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.redAccent),
-                  onPressed: () {
-                    setState(() {
-                      _voiceFiles.removeAt(index);
-                    });
-                  },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _isAudioPlaying,
+                      builder: (context, isPlaying, child) {
+                        final isCurrentAudio =
+                            _currentAudioUrl == voices[index].path;
+                        return IconButton(
+                          icon: Icon(
+                            isPlaying && isCurrentAudio
+                                ? Icons.pause
+                                : Icons.play_arrow,
+                            color: Colors.blueAccent,
+                          ),
+                          onPressed: () async {
+                            await _toggleAudioPlayback(voices[index].path);
+                          },
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      onPressed: () {
+                        _voiceFiles.value = List.from(voices)..removeAt(index);
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -704,12 +797,17 @@ class _ChatScreenState extends State<ChatScreen> {
             icon: const Icon(Icons.image, color: Colors.grey),
             onPressed: pickImages,
           ),
-          IconButton(
-            icon: Icon(
-              isRecording ? Icons.mic : Icons.mic_none,
-              color: isRecording ? Colors.redAccent : Colors.grey,
-            ),
-            onPressed: _toggleRecording,
+          ValueListenableBuilder<bool>(
+            valueListenable: _isRecording,
+            builder: (context, isRecording, child) {
+              return IconButton(
+                icon: Icon(
+                  isRecording ? Icons.mic : Icons.mic_none,
+                  color: isRecording ? Colors.redAccent : Colors.grey,
+                ),
+                onPressed: _toggleRecording,
+              );
+            },
           ),
           Expanded(
             child: MyTextField(

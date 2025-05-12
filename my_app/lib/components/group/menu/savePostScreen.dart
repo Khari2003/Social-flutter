@@ -6,7 +6,6 @@ import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:my_app/components/group/post/postWidget.dart'; // Import để sử dụng buildVideoPreview
 
 class SavedPostsScreen extends StatelessWidget {

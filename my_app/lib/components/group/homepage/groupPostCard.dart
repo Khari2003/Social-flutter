@@ -247,7 +247,6 @@ class _GroupPostCardState extends State<GroupPostCard>  with AutomaticKeepAliveC
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('groups')
