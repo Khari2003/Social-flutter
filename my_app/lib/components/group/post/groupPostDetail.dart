@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:my_app/components/group/homepage/share_post_dialog.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/services/auth/authService.dart';
@@ -47,7 +48,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     isSaved = widget.isSaved;
     likeCount = widget.likeCount;
     _fetchEmail();
-    // Log để kiểm tra imageUrls nhận được
     print("PostDetailScreen received imageUrls: ${widget.post.imageUrls}");
   }
 
@@ -55,7 +55,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     String? fetchedEmail = await auth.getEmailById(widget.post.userId);
     setState(() {
       email = fetchedEmail;
-      email = email != null && email!.contains('@') ? email!.split('@')[0] : email;
+      email =
+          email != null && email!.contains('@') ? email!.split('@')[0] : email;
     });
   }
 
@@ -105,7 +106,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  void _showImageGallery(BuildContext context, List<String> imageUrls, int initialIndex) {
+  void _showImageGallery(
+      BuildContext context, List<String> imageUrls, int initialIndex) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -159,9 +161,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
 
             // Hiển thị hình ảnh
-            if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+            if (widget.post.imageUrls != null &&
+                widget.post.imageUrls!.isNotEmpty)
               Container(
-                height: 300, // Fixed height for the gallery
+                height: 300,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 child: Stack(
                   alignment: Alignment.center,
@@ -208,7 +211,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       ),
                                     ),
                                   ),
-                                  errorWidget: (context, url, error) => Container(
+                                  errorWidget: (context, url, error) =>
+                                      Container(
                                     color: Colors.grey[800],
                                     child: const Center(
                                       child: Icon(
@@ -248,6 +252,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ),
 
             // Hiển thị âm thanh nếu có
+            // Hiển thị âm thanh nếu có
             if (widget.post.voiceChatUrl != null)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -279,7 +284,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           IconButton(
                             icon: Icon(
                               isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
-                              color: isLiked ? Colors.blueAccent : Colors.grey[500],
+                              color: isLiked
+                                  ? Colors.blueAccent
+                                  : Colors.grey[500],
                               size: 24,
                             ),
                             onPressed: toggleLike,
@@ -288,7 +295,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             Text(
                               '$likeCount',
                               style: TextStyle(
-                                color: isLiked ? Colors.blueAccent : Colors.grey[500],
+                                color: isLiked
+                                    ? Colors.blueAccent
+                                    : Colors.grey[500],
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -296,8 +305,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.share, color: Colors.grey, size: 24),
-                        onPressed: null, // Implement share logic if needed
+                        icon: const Icon(Icons.share,
+                            color: Colors.grey, size: 24),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => SharePostWidget(
+                              post: widget.post,
+                              postOwnerName: email ?? 'Ẩn danh',
+                            ),
+                          );
+                        },
                       ),
                       IconButton(
                         icon: Icon(
@@ -314,7 +334,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
 
             // Bình luận
-            buildCommentSection(widget.post, context, isComment: false, isfullheight: false),
+            buildCommentSection(widget.post, context,
+                isComment: false, isfullheight: false),
           ],
         ),
       ),
@@ -350,7 +371,9 @@ class DotsIndicator extends StatelessWidget {
           height: currentIndex == index ? 12 : 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: currentIndex == index ? Colors.blueAccent : Colors.grey.withOpacity(0.5),
+            color: currentIndex == index
+                ? Colors.blueAccent
+                : Colors.grey.withOpacity(0.5),
             border: Border.all(
               color: Colors.white.withOpacity(0.2),
               width: 1,

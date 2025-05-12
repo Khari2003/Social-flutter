@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_app/components/chatbubble.dart';
+import 'package:my_app/components/group/post/post_utils/video_player_screen.dart';
 import 'package:my_app/components/textField.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupChatService.dart';
@@ -15,6 +16,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
+import 'package:video_player/video_player.dart';
+import 'package:my_app/components/group/post/postWidget.dart'; // Import để sử dụng buildVideoPreview
 
 class ChatScreen extends StatefulWidget {
   final String GroupId;
@@ -96,7 +99,6 @@ class _ChatScreenState extends State<ChatScreen> {
         isRecording = false;
         if (_audioPath != null) {
           _voiceFiles.add(File(_audioPath!));
-          print(_voiceFiles);
         }
       });
     }
@@ -207,7 +209,7 @@ class _ChatScreenState extends State<ChatScreen> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Image.network(
-          urls[0], // Chỉ hiển thị ảnh đầu tiên
+          urls[0],
           width: double.infinity,
           height: 150,
           fit: BoxFit.cover,
@@ -217,7 +219,8 @@ class _ChatScreenState extends State<ChatScreen> {
               width: double.infinity,
               height: 150,
               color: Colors.grey[800],
-              child: const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
+              child: const Center(
+                  child: CircularProgressIndicator(color: Colors.blueAccent)),
             );
           },
           errorBuilder: (context, error, stackTrace) {
@@ -279,7 +282,6 @@ class _ChatScreenState extends State<ChatScreen> {
     if (data['type'] == 'share_post') {
       return GestureDetector(
         onTap: () async {
-          // Lấy bài đăng gốc từ Firestore
           Posting? originalPost = await _fetchOriginalPost(
             data['originalGroupId'],
             data['postId'],
@@ -295,7 +297,6 @@ class _ChatScreenState extends State<ChatScreen> {
             return;
           }
 
-          // Lấy trạng thái thích và số lượt thích từ Firestore
           DocumentSnapshot postDoc = await FirebaseFirestore.instance
               .collection('groups')
               .doc(originalPost.groupId)
@@ -307,7 +308,6 @@ class _ChatScreenState extends State<ChatScreen> {
           bool isLiked = likes.contains(_firebaseAuth.currentUser!.uid);
           int likeCount = likes.length;
 
-          // Chuyển đến PostDetailScreen với bài đăng gốc
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -315,7 +315,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 post: originalPost,
                 isLiked: isLiked,
                 likeCount: likeCount,
-                isSaved: false, // Bạn có thể kiểm tra trạng thái saved nếu cần
+                isSaved: false,
                 postService: GroupPostingService(),
                 toggleLike: () {
                   GroupPostingService()
@@ -323,7 +323,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
                 toggleSave: () async {
                   try {
-                    List<String> savedPosts = await Authservice().getSavedPosts();
+                    List<String> savedPosts =
+                        await Authservice().getSavedPosts();
                     bool isSaved = savedPosts.contains(originalPost.postId);
                     if (isSaved) {
                       await Authservice().unsavePost(originalPost.postId);
@@ -343,98 +344,127 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           );
         },
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blueGrey.shade800, Colors.blueGrey.shade900],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
+        child: Row(
+          mainAxisAlignment: isSender
+              ? MainAxisAlignment.end
+              : MainAxisAlignment
+                  .start, // Align to right for sender, left for receiver
+          children: [
+            if (!isSender)
+              const SizedBox(
+                  width: 12), // Add left padding for receiver messages
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width *
+                    0.75, // Limit width to 75% of screen
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.share,
-                    color: Colors.white70,
-                    size: 20,
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.blueGrey.shade800,
+                      Colors.blueGrey.shade900
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Bài đăng được chia sẻ',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                data['message'] ?? '',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.4,
+                  ],
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: _buildSharedPostImages(data['imageUrls']),
-                ),
-              if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[800],
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                child: Column(
+                  crossAxisAlignment: isSender
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.share,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          // Ensure the text doesn't overflow
+                          child: Text(
+                            'Bài đăng được chia sẻ',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.play_circle_filled,
-                        color: Colors.white,
-                        size: 40,
+                    const SizedBox(height: 8),
+                    Text(
+                      data['message'] ?? '',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (data['imageUrls'] != null &&
+                        data['imageUrls'].isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: _buildSharedPostImages(data['imageUrls']),
+                      ),
+                    if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => VideoPlayerScreen(
+                                    videoUrl: data['videoUrl']),
+                              ),
+                            );
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: 150,
+                              child: buildVideoPreview(
+                                  context, data['videoUrl']!,
+                                  limitHeight: true),
+                            ),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Nhấn để xem chi tiết',
+                      style: TextStyle(
+                        color: Colors.blueAccent.shade100,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Text(
-                'Nhấn để xem chi tiết',
-                style: TextStyle(
-                  color: Colors.blueAccent.shade100,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            if (isSender)
+              const SizedBox(
+                  width: 12), // Add right padding for sender messages
+          ],
         ),
       );
     }
@@ -442,7 +472,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -456,19 +487,23 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           Row(
-            mainAxisAlignment: isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment:
+                isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
             children: [
               if (!isSender) const SizedBox(width: 8),
               Flexible(
                 child: Column(
-                  crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment: isSender
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
                   children: [
                     if (data['voiceChatUrl'] != null)
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            await _audioPlayer.play(UrlSource(data['voiceChatUrl']));
+                            await _audioPlayer
+                                .play(UrlSource(data['voiceChatUrl']));
                           },
                           icon: const Icon(Icons.play_arrow, size: 20),
                           label: const Text('Play Audio'),
@@ -481,7 +516,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                       ),
-                    if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
+                    if (data['imageUrls'] != null &&
+                        data['imageUrls'].isNotEmpty)
                       ...data['imageUrls'].map<Widget>((url) => GestureDetector(
                             onTap: () {
                               _showFullScreenImage(context, url);
@@ -490,25 +526,31 @@ class _ChatScreenState extends State<ChatScreen> {
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey[800]!, width: 1),
+                                border: Border.all(
+                                    color: Colors.grey[800]!, width: 1),
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.network(
                                   url,
-                                  width: MediaQuery.of(context).size.width * 0.6,
-                                  height: MediaQuery.of(context).size.height * 0.3,
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.6,
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.3,
                                   fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
                                     if (loadingProgress == null) return child;
                                     return const Center(
-                                        child: CircularProgressIndicator(color: Colors.blueAccent));
+                                        child: CircularProgressIndicator(
+                                            color: Colors.blueAccent));
                                   },
                                   errorBuilder: (context, error, stackTrace) {
                                     return Container(
                                       height: 100,
                                       color: Colors.grey[800],
-                                      child: const Icon(Icons.error, color: Colors.redAccent),
+                                      child: const Icon(Icons.error,
+                                          color: Colors.redAccent),
                                     );
                                   },
                                 ),
@@ -596,7 +638,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: Colors.redAccent,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 18),
+                    child:
+                        const Icon(Icons.close, color: Colors.white, size: 18),
                   ),
                 ),
               ),
@@ -628,7 +671,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 IconButton(
                   icon: const Icon(Icons.play_arrow, color: Colors.blueAccent),
                   onPressed: () async {
-                    await _audioPlayer.play(DeviceFileSource(_voiceFiles[index].path));
+                    await _audioPlayer
+                        .play(DeviceFileSource(_voiceFiles[index].path));
                   },
                 ),
                 IconButton(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:my_app/components/group/homepage/share_post_dialog.dart';
 import 'package:my_app/components/group/menu/ProfileScreen.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
@@ -10,9 +11,8 @@ import 'package:my_app/model/group/posting.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'package:my_app/services/group/groupChatService.dart';
-import 'package:my_app/services/group/groupService.dart';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
+
 
 class GroupPostCard extends StatefulWidget {
   final Posting post;
@@ -133,135 +133,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
         isCommenting.value = false;
       }
     }
-  }
-
-  void _sharePost() async {
-    final GroupService groupService = GroupService();
-    final GroupChatService chatService = GroupChatService();
-    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
-
-    final userGroupsStream = groupService.getUserGroups();
-    final userGroups =
-        await userGroupsStream.first.then((snapshot) => snapshot.docs);
-
-    final privateChatsSnapshot = await FirebaseFirestore.instance
-        .collection('private_chats')
-        .where('users', arrayContains: currentUserId)
-        .get();
-    final privateChatUsers = privateChatsSnapshot.docs.map((doc) {
-      final data = doc.data();
-      final otherUserId = (data['users'] as List)
-          .firstWhere((id) => id != currentUserId) as String;
-      return otherUserId;
-    }).toList();
-
-    if (userGroups.isEmpty && privateChatUsers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Không có nhóm hoặc người để chia sẻ!")),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Chia sẻ bài đăng"),
-        content: Container(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              if (userGroups.isNotEmpty) ...[
-                const Text("Nhóm",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                ...userGroups.map((doc) {
-                  final groupData = doc.data() as Map<String, dynamic>;
-                  final groupId = doc.id;
-                  final groupName = groupData['groupName'] as String;
-                  return ListTile(
-                    title: Text(groupName),
-                    onTap: () async {
-                      try {
-                        String shareContent = widget.post.content;
-                        List<String>? shareImages = widget.post.imageUrls; // Gửi toàn bộ danh sách ảnh
-                        String? shareVideo = widget.post.videoUrl;
-                        await chatService.sendSharePostMessage(
-                          groupId,
-                          widget.post.postId,
-                          widget.post.groupId,
-                          shareContent,
-                          shareVideo,
-                          shareImages as List<String>?,
-                          postOwnerName: email ?? 'Ẩn danh',
-                        );
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Đã chia sẻ bài đăng!")),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Lỗi khi chia sẻ: $e")),
-                        );
-                      }
-                    },
-                  );
-                }).toList(),
-                const Divider(),
-              ],
-              if (privateChatUsers.isNotEmpty) ...[
-                const Text("Người dùng",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                ...privateChatUsers.map((userId) {
-                  return FutureBuilder<String?>(
-                    future: auth.getEmailById(userId),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const SizedBox.shrink();
-                      final userEmail = snapshot.data!.split('@')[0];
-                      return ListTile(
-                        title: Text(userEmail),
-                        onTap: () async {
-                          try {
-                            String shareContent = widget.post.content;
-                            List<String>? shareImages = widget.post.imageUrls; // Gửi toàn bộ danh sách ảnh
-                            String? shareVideo = widget.post.videoUrl;
-                            await chatService.sendPrivateMessage(
-                              widget.post.groupId,
-                              userId,
-                              shareContent,
-                              sharedImages: shareImages,
-                              videoUrl: shareVideo,
-                              postOwnerName: email ?? 'Ẩn danh',
-                              type: 'share_post',
-                              postId: widget.post.postId,
-                              originalGroupId: widget.post.groupId,
-                            );
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("Đã chia sẻ bài đăng!")),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Lỗi khi chia sẻ: $e")),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  );
-                }).toList(),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
-          ),
-        ],
-      ),
-    );
   }
 
   String formatTimestamp(DateTime timestamp) {
@@ -592,8 +463,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                     margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: buildVideoPreview(context, widget.post.videoUrl!,
-                          limitHeight: true),
+                      child: buildVideoPreview(context, widget.post.videoUrl!, limitHeight: true),
                     ),
                   ),
                 Padding(
@@ -632,8 +502,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           context: context,
                           isScrollControlled: true,
                           shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.vertical(top: Radius.circular(16))),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
                           builder: (context) => StatefulBuilder(
                             builder: (context, setModalState) {
                               return DraggableScrollableSheet(
@@ -681,7 +550,17 @@ class _GroupPostCardState extends State<GroupPostCard> {
                       ),
                       IconButton(
                         icon: Icon(Icons.share, color: Colors.grey[500], size: 22),
-                        onPressed: _sharePost,
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => SharePostWidget(
+                              post: widget.post,
+                              postOwnerName: email ?? 'Ẩn danh',
+                            ),
+                          );
+                        },
                       ),
                       IconButton(
                         icon: Icon(
