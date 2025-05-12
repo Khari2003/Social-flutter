@@ -47,7 +47,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
   @override
   void initState() {
     super.initState();
-    // Không cần addListener, sử dụng onChanged trong TextField
   }
 
   @override
@@ -62,7 +61,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
       _isSearchVisible = !_isSearchVisible;
       if (!_isSearchVisible) {
         _searchController.clear();
-        _searchQuery = ''; // Xóa query khi ẩn
+        _searchQuery = '';
       }
       print('Search visible: $_isSearchVisible'); // Debug trạng thái
     });
@@ -232,7 +231,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                             }
 
                             if (snapshot.hasError) {
-                              print('Stream error: ${snapshot.error}'); // Debug lỗi stream
+                              print('Stream error: ${snapshot.error}'); // Debug lỗi
                               return const Center(
                                 child: Text(
                                   "Lỗi tải bài đăng!",
@@ -264,15 +263,13 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                   try {
                                     return Posting.fromMap(doc.data() as Map<String, dynamic>);
                                   } catch (e) {
-                                    print('Error parsing post: $e'); // Debug lỗi parse
+                                    print('Error parsing post: $e'); // Debug lỗi
                                     return null;
                                   }
                                 })
                                 .where((post) => post != null)
                                 .cast<Posting>()
                                 .toList();
-
-                            print('Posts loaded: ${posts.length}'); // Debug số bài đăng
 
                             final filteredPosts = _searchQuery.isEmpty
                                 ? posts
@@ -282,7 +279,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                     return content.contains(_searchQuery);
                                   }).toList();
 
-                            print('Filtered posts: ${filteredPosts.length}'); // Debug số bài đăng sau lọc
+                            print('Posts loaded: ${posts.length}, Filtered: ${filteredPosts.length}'); // Debug số bài đăng
 
                             return ListView(
                               controller: widget.scrollController,
@@ -303,7 +300,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                             child: InputAreaWidget(onTap: _openCreatePostScreen),
                                           ),
                                           const SizedBox(width: 8),
-                                          // Nút tìm kiếm với nền xám
+                                          // Nút tìm kiếm
                                           GestureDetector(
                                             onTap: _toggleSearchBar,
                                             child: Container(
