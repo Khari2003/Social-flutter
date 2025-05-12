@@ -9,7 +9,7 @@ import 'package:my_app/model/group/posting.dart';
 class GroupPostingService extends ChangeNotifier {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
-  final String apiEndpoint = "http://192.168.215.200:5000/upload";
+  final String apiEndpoint = "http://192.168.1.200:5000/upload";
 
   /// Upload ảnh lên Cloudinary
   Future<List<String>> _uploadImages(List<File> images) async {
@@ -31,7 +31,7 @@ class GroupPostingService extends ChangeNotifier {
     List<String> urls = [];
 
     for (File file in files) {
-      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint!));
+      var request = http.MultipartRequest('POST', Uri.parse(apiEndpoint));
       request.fields['type'] = type;
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
@@ -100,6 +100,20 @@ class GroupPostingService extends ChangeNotifier {
         .collection('posts')
         .orderBy('timestamp', descending: true)
         .snapshots();
+  }
+
+  /// Xóa bài đăng khỏi Firestore
+  Future<void> deletePost(String groupId, String postId) async {
+    try {
+      await _fireStore
+          .collection('groups')
+          .doc(groupId)
+          .collection('posts')
+          .doc(postId)
+          .delete();
+    } catch (e) {
+      throw Exception("Failed to delete post: $e");
+    }
   }
 
   Future<void> likePost(String groupId, String postId) async {

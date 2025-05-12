@@ -47,7 +47,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
     });
   }
 
-    Future<void> _checkSavedStatus() async {
+  Future<void> _checkSavedStatus() async {
     try {
       List<String> savedPosts = await auth.getSavedPosts();
       setState(() {
@@ -57,7 +57,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.redAccent,
-          content: Text('Lỗi khi kiểm tra trạng thái lưu: $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Lỗi khi kiểm tra trạng thái lưu: $e',
+              style: const TextStyle(color: Colors.white)),
         ),
       );
     }
@@ -65,6 +66,21 @@ class _GroupPostCardState extends State<GroupPostCard> {
 
   void toggleLike() {
     widget.postService.likePost(widget.post.groupId, widget.post.postId);
+  }
+
+  void deletePost() async {
+    try {
+      await widget.postService
+          .deletePost(widget.post.groupId, widget.post.postId);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Lỗi khi xóa bài đăng: $e',
+              style: const TextStyle(color: Colors.white)),
+        ),
+      );
+    }
   }
 
   void toggleSave() async {
@@ -216,14 +232,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           if (value == 'delete' &&
                               widget.post.userId ==
                                   FirebaseAuth.instance.currentUser!.uid) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: Colors.redAccent,
-                                content: Text(
-                                    'Chức năng xóa bài đăng chưa được triển khai',
-                                    style: TextStyle(color: Colors.white)),
-                              ),
-                            );
+                            deletePost();
                           }
                         },
                         itemBuilder: (context) => [
