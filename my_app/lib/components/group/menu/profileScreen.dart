@@ -26,7 +26,9 @@ class ProfileScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
+            iconTheme: IconThemeData(color: Colors.white),
             expandedHeight: 450, // Chiều cao tổng để chứa ảnh bìa, avatar, và thông tin
+            toolbarHeight: 48, 
             floating: false,
             pinned: true,
             backgroundColor: Colors.black87,
@@ -103,7 +105,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       // Avatar nằm giữa
                       Positioned(
-                        top: 140, // Nửa trên nằm trên ảnh bìa, nửa dưới trên thông tin
+                        top: 140, 
                         left: 0,
                         right: 0,
                         child: Center(

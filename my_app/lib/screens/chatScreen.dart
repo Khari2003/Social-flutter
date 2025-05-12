@@ -16,8 +16,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
-import 'package:video_player/video_player.dart';
-import 'package:my_app/components/group/post/postWidget.dart'; // Import để sử dụng buildVideoPreview
+import 'package:my_app/components/group/post/postWidget.dart'; 
 
 class ChatScreen extends StatefulWidget {
   final String GroupId;
@@ -297,14 +296,7 @@ class _ChatScreenState extends State<ChatScreen> {
             return;
           }
 
-          DocumentSnapshot postDoc = await FirebaseFirestore.instance
-              .collection('groups')
-              .doc(originalPost.groupId)
-              .collection('posts')
-              .doc(originalPost.postId)
-              .get();
-
-          List<String> likes = List<String>.from(postDoc['likes'] ?? []);
+          List<String> likes = originalPost.likes;
           bool isLiked = likes.contains(_firebaseAuth.currentUser!.uid);
           int likeCount = likes.length;
 
@@ -348,11 +340,11 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisAlignment: isSender
               ? MainAxisAlignment.end
               : MainAxisAlignment
-                  .start, // Align to right for sender, left for receiver
+                  .start, 
           children: [
             if (!isSender)
               const SizedBox(
-                  width: 12), // Add left padding for receiver messages
+                  width: 12), 
             ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width *

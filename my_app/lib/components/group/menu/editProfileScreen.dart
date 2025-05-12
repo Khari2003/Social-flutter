@@ -21,9 +21,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneNumberController = TextEditingController();
   final _bioController = TextEditingController();
   String? _avatarUrl;
-  String? _coverPhotoUrl; // New field
+  String? _coverPhotoUrl; 
   File? _selectedAvatarImage;
-  File? _selectedCoverImage; // New field
+  File? _selectedCoverImage; 
   bool _isEditing = false;
   bool _isLoading = false;
 

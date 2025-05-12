@@ -4,7 +4,6 @@ import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/auth/auth_gate.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -13,7 +13,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
 
-
 class GroupPostCard extends StatefulWidget {
   final Posting post;
   final GroupPostingService postService;
@@ -28,14 +27,18 @@ class GroupPostCard extends StatefulWidget {
   _GroupPostCardState createState() => _GroupPostCardState();
 }
 
-class _GroupPostCardState extends State<GroupPostCard> {
+class _GroupPostCardState extends State<GroupPostCard>  with AutomaticKeepAliveClientMixin {
   final TextEditingController _commentController = TextEditingController();
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final Authservice auth = Authservice();
+  String? name;
   String? email;
   String? avatarUrl;
   bool isSaved = false;
   bool isLoadingAvatar = true;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -54,6 +57,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
         email = email != null && email!.contains('@')
             ? email!.split('@')[0]
             : user?.fullName ?? 'Ẩn danh';
+        name = user?.fullName;
         avatarUrl = user?.avatarUrl;
         isLoadingAvatar = false;
         print("Avatar URL: $avatarUrl");
@@ -165,7 +169,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
     }
   }
 
-  void _showImageGallery(BuildContext context, List<String> imageUrls, int initialIndex) {
+  void _showImageGallery(
+      BuildContext context, List<String> imageUrls, int initialIndex) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -189,7 +194,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
           width: width,
           height: height,
           color: Colors.grey[800],
-          child: const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
+          child: const Center(
+              child: CircularProgressIndicator(color: Colors.blueAccent)),
         ),
         errorWidget: (context, url, error) => Container(
           width: width,
@@ -241,6 +247,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('groups')
@@ -278,7 +285,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
           child: Card(
             color: const Color(0xFF2A2A2A),
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +315,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              email ?? 'Ẩn danh',
+                              name ?? 'Ẩn danh',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -317,13 +325,15 @@ class _GroupPostCardState extends State<GroupPostCard> {
                             ),
                             Text(
                               formatTimestamp(widget.post.timestamp.toDate()),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey[500]),
                             ),
                           ],
                         ),
                       ),
                       PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_horiz, color: Colors.white, size: 22),
+                        icon: const Icon(Icons.more_horiz,
+                            color: Colors.white, size: 22),
                         color: const Color(0xFF3A3A3A),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
@@ -331,18 +341,12 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           if (value == 'delete' &&
                               widget.post.userId ==
                                   FirebaseAuth.instance.currentUser!.uid) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: Colors.redAccent,
-                                content: Text(
-                                    'Chức năng xóa bài đăng chưa được triển khai',
-                                    style: TextStyle(color: Colors.white)),
-                              ),
-                            );
+                            deletePost();
                           }
                         },
                         itemBuilder: (context) => [
-                          if (widget.post.userId == FirebaseAuth.instance.currentUser!.uid)
+                          if (widget.post.userId ==
+                              FirebaseAuth.instance.currentUser!.uid)
                             PopupMenuItem<String>(
                               value: 'delete',
                               child: Text('Xóa bài đăng',
@@ -354,35 +358,44 @@ class _GroupPostCardState extends State<GroupPostCard> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Text(
                     widget.post.content,
-                    style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.4),
+                    style: const TextStyle(
+                        fontSize: 15, color: Colors.white, height: 1.4),
                   ),
                 ),
-                if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+                if (widget.post.imageUrls != null &&
+                    widget.post.imageUrls!.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final imageCount = widget.post.imageUrls!.length;
-                        final totalWidth = constraints.maxWidth;
-
+                        // final totalWidth = constraints.maxWidth;
                         if (imageCount == 1) {
                           return GestureDetector(
-                            onTap: () => _showImageGallery(context, widget.post.imageUrls!, 0),
+                            onTap: () => _showImageGallery(
+                                context, widget.post.imageUrls!, 0),
                             child: FutureBuilder<Size>(
-                              future: _getImageSize(widget.post.imageUrls!.first),
+                              future:
+                                  _getImageSize(widget.post.imageUrls!.first),
                               builder: (context, snapshot) {
                                 if (snapshot.hasData) {
                                   final size = snapshot.data!;
                                   final aspectRatio = size.height / size.width;
-                                  final height = aspectRatio > 1.2 ? 500.0 : 300.0;
+                                  final height =
+                                      aspectRatio > 1.2 ? 500.0 : 300.0;
                                   return _buildImageWidget(
-                                      widget.post.imageUrls!.first, double.infinity, height);
+                                      widget.post.imageUrls!.first,
+                                      double.infinity,
+                                      height);
                                 }
                                 return _buildImageWidget(
-                                    widget.post.imageUrls!.first, double.infinity, 300);
+                                    widget.post.imageUrls!.first,
+                                    double.infinity,
+                                    300);
                               },
                             ),
                           );
@@ -391,17 +404,23 @@ class _GroupPostCardState extends State<GroupPostCard> {
                             children: [
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: () => _showImageGallery(context, widget.post.imageUrls!, 0),
+                                  onTap: () => _showImageGallery(
+                                      context, widget.post.imageUrls!, 0),
                                   child: _buildImageWidget(
-                                      widget.post.imageUrls![0], double.infinity, 200),
+                                      widget.post.imageUrls![0],
+                                      double.infinity,
+                                      200),
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: () => _showImageGallery(context, widget.post.imageUrls!, 1),
+                                  onTap: () => _showImageGallery(
+                                      context, widget.post.imageUrls!, 1),
                                   child: _buildImageWidget(
-                                      widget.post.imageUrls![1], double.infinity, 200),
+                                      widget.post.imageUrls![1],
+                                      double.infinity,
+                                      200),
                                 ),
                               ),
                             ],
@@ -414,9 +433,12 @@ class _GroupPostCardState extends State<GroupPostCard> {
                               Expanded(
                                 flex: 2,
                                 child: GestureDetector(
-                                  onTap: () => _showImageGallery(context, widget.post.imageUrls!, 0),
+                                  onTap: () => _showImageGallery(
+                                      context, widget.post.imageUrls!, 0),
                                   child: _buildImageWidget(
-                                      widget.post.imageUrls![0], double.infinity, 300),
+                                      widget.post.imageUrls![0],
+                                      double.infinity,
+                                      300),
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -425,15 +447,21 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                 child: Column(
                                   children: [
                                     GestureDetector(
-                                      onTap: () => _showImageGallery(context, widget.post.imageUrls!, 1),
+                                      onTap: () => _showImageGallery(
+                                          context, widget.post.imageUrls!, 1),
                                       child: _buildImageWidget(
-                                          widget.post.imageUrls![1], double.infinity, 148),
+                                          widget.post.imageUrls![1],
+                                          double.infinity,
+                                          148),
                                     ),
                                     const SizedBox(height: 4),
                                     Stack(
                                       children: [
                                         GestureDetector(
-                                          onTap: () => _showImageGallery(context, widget.post.imageUrls!, 2),
+                                          onTap: () => _showImageGallery(
+                                              context,
+                                              widget.post.imageUrls!,
+                                              2),
                                           child: _buildImageWidget(
                                               widget.post.imageUrls!.length > 2
                                                   ? widget.post.imageUrls![2]
@@ -444,11 +472,16 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                         if (remainingImages > 1)
                                           Positioned.fill(
                                             child: GestureDetector(
-                                              onTap: () => _showImageGallery(context, widget.post.imageUrls!, 2),
+                                              onTap: () => _showImageGallery(
+                                                  context,
+                                                  widget.post.imageUrls!,
+                                                  2),
                                               child: Container(
                                                 decoration: BoxDecoration(
-                                                  color: Colors.black.withOpacity(0.5),
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: Colors.black
+                                                      .withOpacity(0.5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                 ),
                                                 child: const Center(
                                                   child: Text(
@@ -456,7 +489,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                                     style: TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 16,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
                                                   ),
                                                 ),
@@ -476,10 +510,12 @@ class _GroupPostCardState extends State<GroupPostCard> {
                   ),
                 if (widget.post.videoUrl != null)
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: buildVideoPreview(context, widget.post.videoUrl!, limitHeight: true),
+                      child: buildVideoPreview(context, widget.post.videoUrl!,
+                          limitHeight: true),
                     ),
                   ),
                 Padding(
@@ -491,12 +527,17 @@ class _GroupPostCardState extends State<GroupPostCard> {
                         onTap: toggleLike,
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
                           child: Row(
                             children: [
                               Icon(
-                                isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
-                                color: isLiked ? Colors.blueAccent : Colors.grey[500],
+                                isLiked
+                                    ? Icons.thumb_up
+                                    : Icons.thumb_up_off_alt,
+                                color: isLiked
+                                    ? Colors.blueAccent
+                                    : Colors.grey[500],
                                 size: 22,
                               ),
                               const SizedBox(width: 6),
@@ -504,7 +545,9 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                 likeCount > 0 ? '$likeCount' : '',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: isLiked ? Colors.blueAccent : Colors.grey[400],
+                                  color: isLiked
+                                      ? Colors.blueAccent
+                                      : Colors.grey[400],
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -518,7 +561,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           context: context,
                           isScrollControlled: true,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(16))),
                           builder: (context) => StatefulBuilder(
                             builder: (context, setModalState) {
                               return DraggableScrollableSheet(
@@ -548,10 +592,12 @@ class _GroupPostCardState extends State<GroupPostCard> {
                         ),
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
                           child: Row(
                             children: [
-                              Icon(Icons.comment, color: Colors.grey[500], size: 22),
+                              Icon(Icons.comment,
+                                  color: Colors.grey[500], size: 22),
                               const SizedBox(width: 6),
                               Text(
                                 'Bình luận',
@@ -565,7 +611,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.share, color: Colors.grey[500], size: 22),
+                        icon: Icon(Icons.share,
+                            color: Colors.grey[500], size: 22),
                         onPressed: () {
                           showModalBottomSheet(
                             context: context,
@@ -603,8 +650,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
     image.image.resolve(const ImageConfiguration()).addListener(
           ImageStreamListener(
             (ImageInfo info, bool synchronousCall) {
-              completer.complete(
-                  Size(info.image.width.toDouble(), info.image.height.toDouble()));
+              completer.complete(Size(
+                  info.image.width.toDouble(), info.image.height.toDouble()));
             },
             onError: (exception, stackTrace) {
               completer.complete(const Size(1, 1));

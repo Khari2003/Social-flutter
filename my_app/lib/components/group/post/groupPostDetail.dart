@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:my_app/components/group/homepage/share_post_dialog.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/model/group/posting.dart';
+import 'package:my_app/model/user/user.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
@@ -38,7 +39,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final Authservice auth = Authservice();
   final TextEditingController _commentController = TextEditingController();
   bool isCommenting = false;
-  String? email;
+  String? name;
   int _currentImageIndex = 0;
 
   @override
@@ -47,16 +48,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     isLiked = widget.isLiked;
     isSaved = widget.isSaved;
     likeCount = widget.likeCount;
-    _fetchEmail();
+    _fetchUser();
     print("PostDetailScreen received imageUrls: ${widget.post.imageUrls}");
   }
 
-  Future<void> _fetchEmail() async {
-    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
+  Future<void> _fetchUser() async {
+    User? fetchedUser = await auth.getUserById(widget.post.userId);
     setState(() {
-      email = fetchedEmail;
-      email =
-          email != null && email!.contains('@') ? email!.split('@')[0] : email;
+      name = fetchedUser!.fullName;
     });
   }
 
@@ -124,7 +123,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF252728),
       appBar: AppBar(
-        title: Text(email ?? 'Ẩn danh'),
+        title: Text(name ?? 'Ẩn danh'),
         backgroundColor: const Color(0xFF252728),
         titleTextStyle: const TextStyle(
           fontSize: 22,
@@ -314,7 +313,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             backgroundColor: Colors.transparent,
                             builder: (context) => SharePostWidget(
                               post: widget.post,
-                              postOwnerName: email ?? 'Ẩn danh',
+                              postOwnerName: name ?? 'Ẩn danh',
                             ),
                           );
                         },

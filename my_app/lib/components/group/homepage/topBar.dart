@@ -17,7 +17,7 @@ class TopAppBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-        height: 70, 
+        height: 90, 
         decoration: BoxDecoration(
           color: Colors.black87,
           border: Border(
@@ -28,7 +28,7 @@ class TopAppBarWidget extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.fromLTRB(8, 40, 8, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

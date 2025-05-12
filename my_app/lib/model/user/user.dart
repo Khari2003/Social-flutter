@@ -55,7 +55,6 @@ class User {
       throw Exception(
           "Dữ liệu người dùng không đầy đủ: Thiếu các trường bắt buộc (uid, email, timestamp, isAllowedLocation)");
     }
-
     if (map['uid'] is! String) {
       throw Exception("Trường 'uid' phải là String, nhận được: ${map['uid']}");
     }

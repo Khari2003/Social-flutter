@@ -7,7 +7,6 @@ import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:video_player/video_player.dart'; // Thêm để hỗ trợ video
 import 'package:my_app/components/group/post/postWidget.dart'; // Import để sử dụng buildVideoPreview
 
 class SavedPostsScreen extends StatelessWidget {
@@ -42,6 +41,7 @@ class SavedPostsScreen extends StatelessWidget {
   // Widget hiển thị thumbnail hoặc preview video
   Widget _buildThumbnail(BuildContext context, Posting post) {
     String thumbnailUrl = '';
+    // ignore: unused_local_variable
     String postType = '';
 
     // Xác định loại bài đăng và lấy thumbnail
@@ -177,23 +177,13 @@ class SavedPostsScreen extends StatelessWidget {
 
                   return GestureDetector(
                     onTap: () async {
-                      print("Data >>>>>>>>>>>> ${post.groupId}");
-                      // Lấy trạng thái thích và số lượt thích từ Firestore
-                      DocumentSnapshot postDoc = await FirebaseFirestore
-                          .instance
-                          .collection('groups')
-                          .doc(post.groupId)
-                          .collection('posts')
-                          .doc(post.postId)
-                          .get();
 
-                      List<String> likes =
-                          List<String>.from(postDoc['likes'] ?? []);
-
+                      List<String> likes = post.likes;
+                         
                       bool isLiked =
                           likes.contains(FirebaseAuth.instance.currentUser!.uid);
                       int likeCount = likes.length;
-
+                      
                       // Chuyển đến PostDetailScreen
                       Navigator.push(
                         context,

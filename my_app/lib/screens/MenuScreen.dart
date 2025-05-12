@@ -57,7 +57,7 @@ class MenuScreen extends StatelessWidget {
                 style: TextStyle(color: Colors.white, fontSize: 18),
               ),
               onTap: () {
-                // Thêm logic cho cài đặt nếu cần
+                // Thêm logic cho cài đặt 
               },
             ),
             ListTile(

@@ -226,7 +226,7 @@ class _HomePageState extends State<HomePage>
                                       duration:
                                           const Duration(milliseconds: 300),
                                       padding: EdgeInsets.only(
-                                        top: showNavBarValue ? 40 : 0,
+                                        top: showNavBarValue ? 60 : 0,
                                       ),
                                       child: InputAreaWidget(
                                         onTap: _openCreatePostScreen,
