@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:my_app/components/group/homepage/groupBar.dart';
 import 'package:my_app/components/group/homepage/memberBar.dart';
 import 'package:my_app/components/group/homepage/topBar.dart';
+// import 'package:my_app/map/screens/mapScreen.dart';
 import 'package:my_app/screens/chatScreen.dart';
 import 'package:my_app/screens/homeScreen.dart';
 import 'package:my_app/screens/reelScreen.dart';
@@ -30,17 +31,17 @@ class _HomeWrapperState extends State<HomeWrapper> {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
   bool _isSidebarOpen = false;
   final ScrollController _scrollController = ScrollController();
-  final ValueNotifier<List<Map<String, dynamic>>> userGroups = ValueNotifier([]);
-  final ValueNotifier<List<Map<String, dynamic>>> filteredGroups = ValueNotifier([]);
+  final ValueNotifier<List<Map<String, dynamic>>> userGroups =
+      ValueNotifier([]);
   final ValueNotifier<String?> selectedGroupId = ValueNotifier(null);
-  final ValueNotifier<List<Map<String, dynamic>>> groupMembers = ValueNotifier([]);
+  final ValueNotifier<List<Map<String, dynamic>>> groupMembers =
+      ValueNotifier([]);
   late Stream<List<DocumentSnapshot>> postStream;
   late Stream<List<DocumentSnapshot>> videoStream;
   late List<Widget> _pages;
   late Widget _mapScreen;
   final ValueNotifier<bool> _showNavBar = ValueNotifier(true);
   double _lastOffset = 100;
-  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -52,31 +53,19 @@ class _HomeWrapperState extends State<HomeWrapper> {
     _pageController = PageController(initialPage: _currentIndex.value);
   }
 
-  void _filterGroups(String query) {
-    final lowerQuery = query.toLowerCase().trim();
-    print('Search query: $lowerQuery'); // Debug từ khóa
-    if (lowerQuery.isEmpty) {
-      filteredGroups.value = List.from(userGroups.value); // Sao chép danh sách gốc
-      print('Showing all groups: ${filteredGroups.value.length}'); // Debug
-    } else {
-      filteredGroups.value = userGroups.value.where((group) {
-        final groupName = group['name']?.toString().toLowerCase() ?? '';
-        print('Checking group name: $groupName'); // Debug tên nhóm
-        return groupName.contains(lowerQuery);
-      }).toList();
-      print('Filtered groups: ${filteredGroups.value.length}'); // Debug số nhóm sau lọc
-    }
-    filteredGroups.notifyListeners(); // Thông báo thay đổi
-  }
-
   void _onScroll() {
-    if (_scrollController.offset > _lastOffset && _scrollController.offset > 50) {
+    if (_scrollController.offset > _lastOffset &&
+        _scrollController.offset > 50) {
       if (_showNavBar.value) {
-        _showNavBar.value = false;
+        setState(() {
+          _showNavBar.value = false;
+        });
       }
     } else if (_scrollController.offset < _lastOffset) {
       if (!_showNavBar.value) {
-        _showNavBar.value = true;
+        setState(() {
+          _showNavBar.value = true;
+        });
       }
     }
     _lastOffset = _scrollController.offset;
@@ -92,13 +81,10 @@ class _HomeWrapperState extends State<HomeWrapper> {
   void _toggleSidebar() {
     setState(() {
       _isSidebarOpen = !_isSidebarOpen;
-      if (!_isSidebarOpen) {
-        _searchController.clear(); // Xóa từ khóa khi đóng sidebar
-      }
     });
-    print('Sidebar open: $_isSidebarOpen'); // Debug trạng thái sidebar
   }
 
+  // Khi nhấn vào nhóm trong minibar
   void _selectGroup(String groupId) {
     selectedGroupId.value = groupId;
     setState(() {
@@ -137,6 +123,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
     });
   }
 
+  // Lấy danh sách bài viết
   Stream<List<DocumentSnapshot>> _getPostsStream() {
     if (selectedGroupId.value == null) {
       return const Stream.empty();
@@ -150,53 +137,41 @@ class _HomeWrapperState extends State<HomeWrapper> {
         .map((snapshot) => snapshot.docs);
   }
 
+  // Lấy danh sách thành viên của nhóm
   Future<List<Map<String, dynamic>>> _fetchGroupMembers(String groupId) async {
-    try {
-      final groupSnapshot = await _fireStore.collection('groups').doc(groupId).get();
-      List<String> memberIds = List<String>.from(groupSnapshot['members'] ?? []);
+    final groupSnapshot =
+        await _fireStore.collection('groups').doc(groupId).get();
+    List<String> memberIds = List<String>.from(groupSnapshot['members']);
 
-      final userDocs = await _fireStore
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: memberIds.isNotEmpty ? memberIds : ['dummy'])
-          .get();
-      return userDocs.docs
-          .map((doc) => {"id": doc.id, "email": doc["email"] ?? '', "avatar": doc["avatar"] ?? ''})
-          .toList();
-    } catch (e) {
-      print('Error fetching group members: $e'); // Debug lỗi
-      return [];
-    }
+    final userDocs = await _fireStore
+        .collection('users')
+        .where(FieldPath.documentId, whereIn: memberIds)
+        .get();
+    return userDocs.docs
+        .map((doc) => {"id": doc.id, "email": doc["email"], "avatar": ""})
+        .toList();
   }
 
+  // Lấy danh sách nhóm mà người dùng tham gia
   Future<void> _fetchUserGroups() async {
-    try {
-      final String userId = _auth.currentUser!.uid;
-      final snapshot = await _fireStore
-          .collection('groups')
-          .where('members', arrayContains: userId)
-          .get();
+    final String userId = _auth.currentUser!.uid;
+    final snapshot = await _fireStore
+        .collection('groups')
+        .where('members', arrayContains: userId)
+        .get();
 
-      userGroups.value = snapshot.docs
-          .map((doc) => {"id": doc.id, "name": doc['groupName']?.toString() ?? ''})
-          .toList();
-      filteredGroups.value = List.from(userGroups.value);
-      print('User groups loaded: ${userGroups.value.length}'); // Debug số nhóm
-      if (userGroups.value.isNotEmpty) {
-        _selectGroup(userGroups.value.first["id"]);
-      }
-      userGroups.notifyListeners();
-      filteredGroups.notifyListeners();
-    } catch (e) {
-      print('Error fetching user groups: $e'); // Debug lỗi
-      userGroups.value = [];
-      filteredGroups.value = [];
+    userGroups.value = snapshot.docs
+        .map((doc) => {"id": doc.id, "name": doc['groupName']})
+        .toList();
+    if (userGroups.value.isNotEmpty) {
+      _selectGroup(userGroups.value.first["id"]);
     }
   }
 
   void _openGroupChat() {
     if (selectedGroupId.value == null) return;
     setState(() {
-      _isSidebarOpen = false;
+      _isSidebarOpen = !_isSidebarOpen;
     });
     Navigator.push(
       context,
@@ -214,7 +189,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
   void _openPrivateChat(String userId, String userEmail) {
     if (selectedGroupId.value == null) return;
     setState(() {
-      _isSidebarOpen = false;
+      _isSidebarOpen = !_isSidebarOpen;
     });
     Navigator.push(
       context,
@@ -229,37 +204,23 @@ class _HomeWrapperState extends State<HomeWrapper> {
     );
   }
 
+  // Hiển thị popup tạo nhóm
   void _createGroup() {
     TextEditingController groupNameController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text("Tạo Nhóm", style: TextStyle(color: Colors.white)),
+        title: const Text("Tạo Nhóm"),
         content: TextField(
           controller: groupNameController,
-          decoration: InputDecoration(
-            labelText: "Tên nhóm",
-            labelStyle: TextStyle(color: Colors.grey[500]),
-            filled: true,
-            fillColor: Colors.grey[800],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(labelText: "Tên nhóm"),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            child: const Text("Hủy"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
             onPressed: () async {
               String groupName = groupNameController.text.trim();
               if (groupName.isNotEmpty) {
@@ -267,9 +228,10 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   String joinLink = await _groupService.createGroup(groupName);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
+                    SnackBar(
+                        content:
+                            Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
-                  await _fetchUserGroups();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -284,37 +246,24 @@ class _HomeWrapperState extends State<HomeWrapper> {
     );
   }
 
+  // Hiển thị popup tham gia nhóm
   void _joinGroup() {
     TextEditingController joinLinkController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
+        title: const Text("Tham Gia Nhóm"),
         content: TextField(
           controller: joinLinkController,
-          decoration: InputDecoration(
-            labelText: "Nhập mã nhóm",
-            labelStyle: TextStyle(color: Colors.grey[500]),
-            filled: true,
-            fillColor: Colors.grey[800],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(labelText: "Nhập mã nhóm"),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+            child: const Text("Hủy"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
             onPressed: () async {
               String joinLink = joinLinkController.text.trim();
               if (joinLink.isNotEmpty) {
@@ -324,7 +273,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Tham gia nhóm thành công!")),
                   );
-                  await _fetchUserGroups();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -342,14 +290,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
   void signOut() {
     final authService = Provider.of<Authservice>(context, listen: false);
     authService.signOut();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    _pageController.dispose();
-    super.dispose();
   }
 
   @override
@@ -371,6 +311,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
               });
             },
           ),
+
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             bottom: _showNavBar.value ? 0 : -70,
@@ -410,17 +351,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Thanh kéo
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[600],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  // Tiêu đề
+                  // Nút đóng Sidebar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -439,53 +370,17 @@ class _HomeWrapperState extends State<HomeWrapper> {
                       ),
                     ],
                   ),
-                  // Thanh tìm kiếm
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) {
-                        _filterGroups(value); // Lọc ngay khi nhập
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Tìm kiếm nhóm...',
-                        hintStyle: TextStyle(color: Colors.grey[500]),
-                        filled: true,
-                        fillColor: Colors.grey[900],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(Icons.clear, color: Colors.grey[500]),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _filterGroups(''); // Reset lọc
-                                },
-                              )
-                            : null,
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
                   const Divider(),
                   Expanded(
                     child: Row(
                       children: [
                         Flexible(
                           flex: 2,
-                          child: ValueListenableBuilder<List<Map<String, dynamic>>>(
-                            valueListenable: filteredGroups,
-                            builder: (context, groups, child) {
-                              return GroupbarWidget(
-                                isOpen: _isSidebarOpen,
-                                userGroups: groups,
-                                selectedGroupId: selectedGroupId.value,
-                                onGroupSelected: _selectGroup,
-                              );
-                            },
+                          child: GroupbarWidget(
+                            isOpen: _isSidebarOpen,
+                            userGroups: userGroups.value,
+                            selectedGroupId: selectedGroupId.value,
+                            onGroupSelected: _selectGroup,
                           ),
                         ),
                         const VerticalDivider(),
@@ -507,22 +402,24 @@ class _HomeWrapperState extends State<HomeWrapper> {
               ),
             ),
           ),
+          //TopApBar
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             top: _showNavBar.value ? 0 : -70,
             left: 0,
             right: 0,
             child: TopAppBarWidget(
-              onCreateGroup: _createGroup,
-              onJoinGroup: _joinGroup,
-              signOut: signOut,
-              userGroupsIsNotEmpty: userGroups.value.isNotEmpty,
-            ),
+                onCreateGroup: _createGroup,
+                onJoinGroup: _joinGroup,
+                signOut: signOut,
+                userGroupsIsNotEmpty: userGroups.value.isNotEmpty),
           ),
+          // Nút mở Sidebar (cố định bên trái)
           if (_currentIndex.value != 2)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 400),
-              left: _isSidebarOpen ? MediaQuery.of(context).size.width * 0.8 : 0,
+              left:
+                  _isSidebarOpen ? MediaQuery.of(context).size.width * 0.8 : 0,
               top: MediaQuery.of(context).size.height * 0.4,
               child: GestureDetector(
                 onTap: _toggleSidebar,
@@ -531,11 +428,13 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   height: 70,
                   decoration: const BoxDecoration(
                     color: Color.fromARGB(255, 218, 231, 243),
-                    borderRadius: BorderRadius.horizontal(right: Radius.circular(50)),
+                    borderRadius:
+                        BorderRadius.horizontal(right: Radius.circular(50)),
                   ),
                 ),
               ),
             ),
+          //Quay lại khi ở MapScreen
           ValueListenableBuilder<int>(
             valueListenable: _currentIndex,
             builder: (context, pageIndex, child) {
