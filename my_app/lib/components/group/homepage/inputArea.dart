@@ -84,10 +84,10 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16), // Tăng viền tròn
       ),
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.antiAlias,
       color: const Color.fromARGB(255, 19, 20, 20),
       child: InkWell(
         onTap: widget.onTap,
@@ -95,22 +95,22 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color.fromARGB(255, 19, 20, 20),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16), // Tăng viền tròn
           ),
           child: Row(
             children: [
-              _buildAvatar(), // Sử dụng hàm _buildAvatar giống GroupPostCard
+              _buildAvatar(),
               const SizedBox(width: 10),
               Expanded(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(255, 40, 42, 44),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24), // Tăng viền tròn hơn
                     border: Border.all(
-                        color: const Color.fromARGB(255, 80, 79, 79),
-                        width: 2),
+                      color: const Color.fromARGB(255, 80, 79, 79),
+                      width: 2,
+                    ),
                   ),
                   child: Center(
                     child: Text(
