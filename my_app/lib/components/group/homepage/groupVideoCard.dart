@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
+import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
-import 'package:my_app/model/group/posting.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
+import 'package:my_app/components/group/homepage/share_post_dialog.dart'; // Import SharePostWidget
 
 class GroupVideoCard extends StatefulWidget {
   final Posting post;
@@ -30,6 +31,9 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   late VideoPlayerController _controller;
   bool _isSeeking = false;
   double _videoPosition = 0;
+  bool isSaved = false;
+  bool isLiked = false;
+  int likeCount = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -38,6 +42,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   void initState() {
     super.initState();
     _fetchEmail();
+    _checkSavedStatus();
     _controller = VideoPlayerController.network(widget.post.videoUrl!)
       ..initialize().then((_) {
         setState(() {});
@@ -53,14 +58,70 @@ class _GroupVideoCardState extends State<GroupVideoCard>
       });
   }
 
-  void _seekTo(double value) {
-    final position = Duration(milliseconds: value.toInt());
-    _controller.seekTo(position);
-    _controller.play();
+  Future<void> _fetchEmail() async {
+    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
+    setState(() {
+      email = fetchedEmail;
+      email = email != null && email!.contains('@')
+          ? email!.split('@')[0]
+          : email ?? 'Ẩn danh';
+    });
+  }
+
+  Future<void> _checkSavedStatus() async {
+    try {
+      List<String> savedPosts = await auth.getSavedPosts();
+      setState(() {
+        isSaved = savedPosts.contains(widget.post.postId);
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Lỗi khi kiểm tra trạng thái lưu: $e'),
+        ),
+      );
+    }
   }
 
   void toggleLike() {
     widget.postService.likePost(widget.post.groupId, widget.post.postId);
+    setState(() {
+      isLiked = !isLiked;
+      likeCount += isLiked ? 1 : -1;
+    });
+  }
+
+  void toggleSave() async {
+    try {
+      if (isSaved) {
+        await auth.unsavePost(widget.post.postId);
+      } else {
+        await auth.savePost(widget.post.postId);
+      }
+      setState(() {
+        isSaved = !isSaved;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Lỗi khi lưu bài đăng: $e'),
+        ),
+      );
+    }
+  }
+
+  void _sharePost() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SharePostWidget( // Thay SharePostDialog bằng SharePostWidget
+        post: widget.post,
+        postOwnerName: email ?? 'Ẩn danh',
+      ),
+    );
   }
 
   void addComment() async {
@@ -78,7 +139,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.redAccent,
-            content: Text('Lỗi khi gửi bình luận: $e', style: const TextStyle(color: Colors.white)),
+            content: Text('Lỗi khi gửi bình luận: $e',
+                style: const TextStyle(color: Colors.white)),
           ),
         );
       } finally {
@@ -87,17 +149,16 @@ class _GroupVideoCardState extends State<GroupVideoCard>
     }
   }
 
-  Future<void> _fetchEmail() async {
-    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
-    setState(() {
-      email = fetchedEmail;
-      email = email != null && email!.contains('@') ? email!.split('@')[0] : email ?? 'Ẩn danh';
-    });
+  void _seekTo(double value) {
+    final position = Duration(milliseconds: value.toInt());
+    _controller.seekTo(position);
+    _controller.play();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
@@ -117,8 +178,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
         }
         var postData = snapshot.data!;
         List<String> likes = List<String>.from(postData['likes'] ?? []);
-        bool isLiked = likes.contains(FirebaseAuth.instance.currentUser!.uid);
-        int likeCount = likes.length;
+        isLiked = likes.contains(FirebaseAuth.instance.currentUser!.uid);
+        likeCount = likes.length;
 
         final screenSize = MediaQuery.of(context).size;
         final buttonSize = screenSize.width * 0.08;
@@ -138,10 +199,9 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                       controller: _controller,
                     ),
                   ),
-
                   Positioned(
                     right: 8,
-                    bottom: 40, 
+                    bottom: 40,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -164,7 +224,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                             context: context,
                             isScrollControlled: true,
                             shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                              borderRadius:
+                                  BorderRadius.vertical(top: Radius.circular(16)),
                             ),
                             builder: (context) => StatefulBuilder(
                               builder: (context, setModalState) {
@@ -201,23 +262,32 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                           ),
                         ),
                         Text(
-                          widget.post.comments.isNotEmpty ? '${widget.post.comments.length}' : '0',
+                          widget.post.comments.isNotEmpty
+                              ? '${widget.post.comments.length}'
+                              : '0',
                           style: TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
                         const SizedBox(height: 12),
                         IconButton(
-                          icon: Icon(Icons.share, color: Colors.grey[500], size: buttonSize),
-                          onPressed: null,
+                          icon: Icon(
+                            Icons.share,
+                            color: Colors.grey[500],
+                            size: buttonSize,
+                          ),
+                          onPressed: _sharePost,
                         ),
                         const SizedBox(height: 12),
                         IconButton(
-                          icon: Icon(Icons.bookmark_border, color: Colors.grey[500], size: buttonSize),
-                          onPressed: null,
+                          icon: Icon(
+                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            color: isSaved ? Colors.yellow : Colors.grey[500],
+                            size: buttonSize,
+                          ),
+                          onPressed: toggleSave,
                         ),
                       ],
                     ),
                   ),
-                  // Email và nội dung
                   Positioned(
                     top: 16,
                     left: 12,
@@ -248,7 +318,6 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                       ],
                     ),
                   ),
-                  // Thanh slider
                   Positioned(
                     bottom: 8,
                     left: 12,
