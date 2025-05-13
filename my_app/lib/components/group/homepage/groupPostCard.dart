@@ -32,8 +32,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final ValueNotifier<bool> isExpanded = ValueNotifier(false);
   final Authservice auth = Authservice();
-  String? name;
-  String? email;
+  String? displayName;
   String? avatarUrl;
   bool isSaved = false;
   bool isLoadingAvatar = true;
@@ -51,11 +50,11 @@ class _GroupPostCardState extends State<GroupPostCard> {
       final user = await auth.getUserById(widget.post.userId);
       print("User data fetched: $user");
       setState(() {
-        email = user?.userEmail;
-        email = email != null && email!.contains('@')
-            ? email!.split('@')[0]
-            : user?.fullName ?? 'Ẩn danh';
-        name = user?.fullName;
+        displayName = user?.fullName?.isNotEmpty == true
+            ? user!.fullName
+            : user?.userEmail?.isNotEmpty == true
+                ? user!.userEmail!.split('@')[0]
+                : 'Ẩn danh';
         avatarUrl = user?.avatarUrl;
         isLoadingAvatar = false;
         print("Avatar URL: $avatarUrl");
@@ -63,7 +62,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
     } catch (e) {
       print("Error fetching user data: $e");
       setState(() {
-        email = 'Ẩn danh';
+        displayName = 'Ẩn danh';
         avatarUrl = null;
         isLoadingAvatar = false;
       });
@@ -220,27 +219,16 @@ class _GroupPostCardState extends State<GroupPostCard> {
     return CircleAvatar(
       radius: 20,
       backgroundColor: Colors.grey[800],
-      child: avatarUrl != null
-          ? ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: avatarUrl!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const CircularProgressIndicator(
-                  color: Colors.blueAccent,
-                  strokeWidth: 2,
-                ),
-                errorWidget: (context, url, error) => const Icon(
-                  Icons.person_outline,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            )
-          : const Icon(
+      backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+          ? CachedNetworkImageProvider(avatarUrl!)
+          : null,
+      child: avatarUrl == null || avatarUrl!.isEmpty
+          ? const Icon(
               Icons.person_outline,
               color: Colors.white,
               size: 24,
-            ),
+            )
+          : null,
     );
   }
 
@@ -425,7 +413,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final imageCount = widget.post.imageUrls!.length;
-                        // final totalWidth = constraints.maxWidth;
                         if (imageCount == 1) {
                           return GestureDetector(
                             onTap: () => _showImageGallery(
