@@ -14,12 +14,14 @@ class ReelScreen extends StatefulWidget {
   final ValueNotifier<String?> selectedGroupId;
   final Stream<List<DocumentSnapshot>> postStream;
   final ValueNotifier<List<Map<String, dynamic>>> userGroups;
+  final ValueNotifier<int> currentIndex;
 
   const ReelScreen({
     Key? key,
     required this.selectedGroupId,
     required this.postStream,
     required this.userGroups,
+    required this.currentIndex,
   }) : super(key: key);
 
   @override
@@ -210,69 +212,79 @@ class _ReelScreenState extends State<ReelScreen>
       body: Stack(
         children: [
           Positioned.fill(
-            child: Column(
-              children: [
-                Expanded(
-                  child: widget.userGroups.value.isEmpty
-                      ? GroupSelectionWidget(
-                          onCreateGroup: _createGroup,
-                          onJoinGroup: _joinGroup,
-                        )
-                      : StreamBuilder<List<DocumentSnapshot>>(
-                          stream: widget.postStream,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
-                            }
+              child: ValueListenableBuilder<int>(
+                  valueListenable: widget.currentIndex,
+                  builder: (context, index, child) {
+                    final bool isScreenVisible = index == 1;
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: widget.userGroups.value.isEmpty
+                              ? GroupSelectionWidget(
+                                  onCreateGroup: _createGroup,
+                                  onJoinGroup: _joinGroup,
+                                )
+                              : StreamBuilder<List<DocumentSnapshot>>(
+                                  stream: widget.postStream,
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Center(
+                                          child: CircularProgressIndicator());
+                                    }
 
-                            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                              return const Center(
-                                child: Text(
-                                  "Không có bài đăng nào!",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color.fromARGB(255, 226, 229, 233),
-                                  ),
+                                    if (!snapshot.hasData ||
+                                        snapshot.data!.isEmpty) {
+                                      return const Center(
+                                        child: Text(
+                                          "Không có bài đăng nào!",
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color.fromARGB(
+                                                255, 226, 229, 233),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    final posts = snapshot.data!
+                                        .map((doc) => Posting.fromMap(
+                                            doc.data() as Map<String, dynamic>))
+                                        .where((post) =>
+                                            post.videoUrl != null &&
+                                            post.videoUrl!.isNotEmpty)
+                                        .toList();
+
+                                    return PageView.builder(
+                                      controller: _pageController,
+                                      scrollDirection: Axis.vertical,
+                                      itemCount: posts.length,
+                                      itemBuilder: (context, index) {
+                                        return Container(
+                                          width:
+                                              MediaQuery.of(context).size.width,
+                                          height: MediaQuery.of(context)
+                                              .size
+                                              .height,
+                                          color: Colors.black,
+                                          child: Center(
+                                            child: GroupVideoCard(
+                                              post: posts[index],
+                                              postService: _groupPostingService,
+                                              isVisible: isScreenVisible &&
+                                                  _currentPage == index,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
                                 ),
-                              );
-                            }
-
-                            final posts = snapshot.data!
-                                .map((doc) => Posting.fromMap(
-                                    doc.data() as Map<String, dynamic>))
-                                .where((post) =>
-                                    post.videoUrl != null &&
-                                    post.videoUrl!.isNotEmpty)
-                                .toList();
-
-                            return PageView.builder(
-                              controller: _pageController,
-                              scrollDirection: Axis.vertical,
-                              itemCount: posts.length,
-                              itemBuilder: (context, index) {
-                                return Container(
-                                  width: MediaQuery.of(context).size.width,
-                                  height: MediaQuery.of(context).size.height,
-                                  color: Colors.black,
-                                  child: Center(
-                                    child: GroupVideoCard(
-                                      post: posts[index],
-                                      postService: _groupPostingService,
-                                      isVisible: _currentPage == index,
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
                         ),
-                ),
-              ],
-            ),
-          ),
+                      ],
+                    );
+                  })),
         ],
       ),
     );

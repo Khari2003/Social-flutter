@@ -105,6 +105,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
           selectedGroupId: selectedGroupId,
           postStream: videoStream,
           userGroups: userGroups,
+          currentIndex: _currentIndex
         ),
         MenuScreen(
           onSavedPostsSelected: () {
@@ -173,6 +174,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
             selectedGroupId: selectedGroupId,
             postStream: const Stream.empty(),
             userGroups: userGroups,
+            currentIndex: _currentIndex
           ),
           MenuScreen(
             onSavedPostsSelected: () {
