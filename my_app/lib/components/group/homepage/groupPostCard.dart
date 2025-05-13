@@ -31,8 +31,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
   final TextEditingController _commentController = TextEditingController();
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final Authservice auth = Authservice();
-  String? name;
-  String? email;
+  String? displayName;
   String? avatarUrl;
   bool isSaved = false;
   bool isLoadingAvatar = true;
@@ -50,11 +49,11 @@ class _GroupPostCardState extends State<GroupPostCard> {
       final user = await auth.getUserById(widget.post.userId);
       print("User data fetched: $user");
       setState(() {
-        email = user?.userEmail;
-        email = email != null && email!.contains('@')
-            ? email!.split('@')[0]
-            : user?.fullName ?? 'Ẩn danh';
-        name = user?.fullName;
+        displayName = user?.fullName?.isNotEmpty == true
+            ? user!.fullName
+            : user?.userEmail?.isNotEmpty == true
+                ? user!.userEmail!.split('@')[0]
+                : 'Ẩn danh';
         avatarUrl = user?.avatarUrl;
         isLoadingAvatar = false;
         print("Avatar URL: $avatarUrl");
@@ -62,7 +61,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
     } catch (e) {
       print("Error fetching user data: $e");
       setState(() {
-        email = 'Ẩn danh';
+        displayName = 'Ẩn danh';
         avatarUrl = null;
         isLoadingAvatar = false;
       });
@@ -299,7 +298,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name ?? 'Ẩn danh',
+                              displayName ?? 'Ẩn danh',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -606,7 +605,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                             backgroundColor: Colors.transparent,
                             builder: (context) => SharePostWidget(
                               post: widget.post,
-                              postOwnerName: email ?? 'Ẩn danh',
+                              postOwnerName: displayName ?? 'Ẩn danh',
                             ),
                           );
                         },
