@@ -217,27 +217,16 @@ class _GroupPostCardState extends State<GroupPostCard> {
     return CircleAvatar(
       radius: 20,
       backgroundColor: Colors.grey[800],
-      child: avatarUrl != null
-          ? ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: avatarUrl!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const CircularProgressIndicator(
-                  color: Colors.blueAccent,
-                  strokeWidth: 2,
-                ),
-                errorWidget: (context, url, error) => const Icon(
-                  Icons.person_outline,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            )
-          : const Icon(
+      backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+          ? CachedNetworkImageProvider(avatarUrl!)
+          : null,
+      child: avatarUrl == null || avatarUrl!.isEmpty
+          ? const Icon(
               Icons.person_outline,
               color: Colors.white,
               size: 24,
-            ),
+            )
+          : null,
     );
   }
 
@@ -368,7 +357,6 @@ class _GroupPostCardState extends State<GroupPostCard> {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final imageCount = widget.post.imageUrls!.length;
-                        // final totalWidth = constraints.maxWidth;
                         if (imageCount == 1) {
                           return GestureDetector(
                             onTap: () => _showImageGallery(

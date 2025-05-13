@@ -27,7 +27,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isEditing = false;
   bool _isLoading = false;
 
-  final String apiEndpoint = "http://192.168.1.5:5000/upload";
+  final String apiEndpoint = "http://192.168.30.53:5000/upload";
 
   @override
   void dispose() {

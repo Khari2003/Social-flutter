@@ -209,8 +209,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         const SizedBox(width: 5),
                         _privacyButton("+ Album"),
                         const SizedBox(width: 5),
-                        _privacyButton("Đang tắt"),
-                        const SizedBox(width: 5),
                         _privacyButton("+ Nhãn AI"),
                       ],
                     ),
