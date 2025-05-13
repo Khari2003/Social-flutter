@@ -5,9 +5,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:my_app/model/group/posting.dart';
+import 'package:my_app/services/auth/authService.dart';
 
 class GroupPostingService extends ChangeNotifier {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
+  final Authservice _authService = Authservice();
 
   final String apiEndpoint = "http://192.168.1.200:5000/upload";
 
@@ -140,7 +142,8 @@ class GroupPostingService extends ChangeNotifier {
   }
 
   Future<void> addComment(String groupId, String postId, String comment) async {
-    String? userId = FirebaseAuth.instance.currentUser!.email;
+    String? userId = FirebaseAuth.instance.currentUser!.uid;
+    final user = await _authService.getUserById(userId);
     DocumentReference postRef = _fireStore
         .collection('groups')
         .doc(groupId)
@@ -153,7 +156,7 @@ class GroupPostingService extends ChangeNotifier {
         throw Exception("Post does not exist!");
       }
       List<String> comments = List<String>.from(snapshot['comments'] ?? []);
-      comments.add('$userId: $comment');
+      comments.add('${user?.fullName}: $comment');
       transaction.update(postRef, {'comments': comments});
     });
   }

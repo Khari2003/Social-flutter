@@ -569,7 +569,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                                   return buildCommentSection(
                                     widget.post,
                                     context,
-                                    isCommenting: isCommenting.value,
+                                    isCommenting: isCommenting,
                                     controller: _commentController,
                                     isLiked: isLiked,
                                     likeCount: likeCount,

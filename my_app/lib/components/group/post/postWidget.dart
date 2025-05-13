@@ -14,7 +14,7 @@ Widget buildCommentSection(
   TextEditingController? controller,
   bool? isLiked,
   int? likeCount,
-  bool? isCommenting,
+  ValueNotifier<bool>? isCommenting,
   VoidCallback? addComment,
   VoidCallback? toggleLike,
   bool isComment = true,
@@ -119,14 +119,12 @@ Widget buildLikeSection(
 Widget buildCommentInput({
   required BuildContext context,
   required TextEditingController controller,
-  required bool isCommenting,
+  required ValueNotifier<bool>? isCommenting,
   required VoidCallback addComment,
 }) {
   return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context)
-            .viewInsets
-            .bottom, 
+        bottom: MediaQuery.of(context).viewInsets.bottom,
         top: 8,
       ),
       child: Container(
@@ -154,11 +152,16 @@ Widget buildCommentInput({
                 ),
               ),
             ),
-            IconButton(
-              icon: isCommenting
-                  ? const CircularProgressIndicator()
-                  : const Icon(Icons.send, color: Colors.blue),
-              onPressed: isCommenting ? null : addComment,
+            ValueListenableBuilder<bool>(
+              valueListenable: isCommenting!,
+              builder: (context, isCommentingValue, child) {
+                return IconButton(
+                  icon: isCommentingValue
+                      ? const CircularProgressIndicator()
+                      : const Icon(Icons.send, color: Colors.blue),
+                  onPressed: isCommentingValue ? null : addComment,
+                );
+              },
             ),
           ],
         ),

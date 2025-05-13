@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,8 +21,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<File> _selectedImages = [];
   final List<File> _selectedVideos = [];
   final Authservice auth = Authservice();
-  bool _isPosting = false;
+  final ValueNotifier<bool> _isPosting = ValueNotifier(false);
   String? email;
+  String? name;
+  String? avatarUrl;
+  bool isLoadingAvatar = true;
 
   @override
   void initState() {
@@ -33,11 +37,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _fetchEmail() async {
-    String? fetchedEmail =
-        await auth.getEmailById(FirebaseAuth.instance.currentUser!.uid);
+    final fetchedName =
+        await auth.getUserById(FirebaseAuth.instance.currentUser!.uid);
     setState(() {
-      email = fetchedEmail;
+      name = fetchedName!.fullName;
+      email = fetchedName.userEmail;
       email = email!.contains('@') ? email!.split('@')[0] : email;
+      avatarUrl = fetchedName.avatarUrl;
+      isLoadingAvatar = false;
     });
   }
 
@@ -57,18 +64,56 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   void _submitPost() async {
     String content = _postContentController.text.trim();
-    if (content.isNotEmpty && !_isPosting) {
-      setState(() => _isPosting = true);
+    if (content.isNotEmpty && !_isPosting.value) {
+      _isPosting.value = true;
       try {
         await widget.onCreatePost(content, _selectedImages, _selectedVideos);
-        Navigator.pop(context, true); 
+        Navigator.pop(context, true);
       } catch (e) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text("Lỗi: $e")));
       } finally {
-        setState(() => _isPosting = false);
+        _isPosting.value = false;
       }
     }
+  }
+
+  Widget _buildAvatar() {
+    if (isLoadingAvatar) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: Colors.grey[800],
+        child: const CircularProgressIndicator(
+          color: Colors.blueAccent,
+          strokeWidth: 2,
+        ),
+      );
+    }
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: Colors.grey[800],
+      child: avatarUrl != null
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const CircularProgressIndicator(
+                  color: Colors.blueAccent,
+                  strokeWidth: 2,
+                ),
+                errorWidget: (context, url, error) => const Icon(
+                  Icons.person_outline,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            )
+          : const Icon(
+              Icons.person_outline,
+              color: Colors.white,
+              size: 24,
+            ),
+    );
   }
 
   @override
@@ -95,27 +140,48 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          TextButton(
-            onPressed: canPost ? _submitPost : null,
-            style: TextButton.styleFrom(
-              side: BorderSide(
-                color:
-                    canPost ? Colors.blue : Color.fromARGB(255, 226, 229, 233),
-                width: 1.5,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              backgroundColor: Colors.white,
-            ),
-            child: Text(
-              "ĐĂNG",
-              style: TextStyle(
-                color:
-                    canPost ? Colors.blue : Color.fromARGB(255, 226, 229, 233),
-                fontWeight: FontWeight.bold,
-              ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _isPosting,
+              builder: (context, isPosting, child) {
+                return TextButton(
+                  onPressed: canPost && !isPosting ? _submitPost : null,
+                  style: TextButton.styleFrom(
+                    side: BorderSide(
+                      color: canPost && !isPosting
+                          ? Colors.blue
+                          : Color.fromARGB(255, 226, 229, 233),
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    backgroundColor: Colors.white,
+                  ),
+                  child: isPosting
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.blue),
+                          ),
+                        )
+                      : Text(
+                          "ĐĂNG",
+                          style: TextStyle(
+                            color: canPost && !isPosting
+                                ? Colors.blue
+                                : Color.fromARGB(255, 226, 229, 233),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                );
+              },
             ),
           ),
         ],
@@ -127,16 +193,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey,
-                  child: Icon(Icons.person, color: Colors.white),
-                ),
+                _buildAvatar(),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(email ?? "User",
+                    Text(name ?? email ?? "User",
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Color.fromARGB(255, 226, 229, 233),

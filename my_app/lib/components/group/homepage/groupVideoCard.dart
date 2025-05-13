@@ -237,7 +237,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                                     return buildCommentSection(
                                       widget.post,
                                       context,
-                                      isCommenting: isCommenting.value,
+                                      isCommenting: isCommenting,
                                       controller: _commentController,
                                       isLiked: isLiked,
                                       likeCount: likeCount,

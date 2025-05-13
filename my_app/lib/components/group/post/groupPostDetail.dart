@@ -38,7 +38,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   late int likeCount;
   final Authservice auth = Authservice();
   final TextEditingController _commentController = TextEditingController();
-  bool isCommenting = false;
+  final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   String? name;
   int _currentImageIndex = 0;
 
@@ -75,10 +75,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   void addComment() async {
-    if (_commentController.text.isNotEmpty && !isCommenting) {
-      setState(() {
-        isCommenting = true;
-      });
+    if (_commentController.text.isNotEmpty && !isCommenting.value) {
+      isCommenting.value = true;
+
       try {
         await widget.postService.addComment(
           widget.post.groupId,
@@ -95,9 +94,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ),
         );
       } finally {
-        setState(() {
-          isCommenting = false;
-        });
+        isCommenting.value = false;
       }
     }
   }
