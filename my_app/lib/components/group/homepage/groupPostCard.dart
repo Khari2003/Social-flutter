@@ -32,6 +32,8 @@ class _GroupPostCardState extends State<GroupPostCard> {
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final ValueNotifier<bool> isExpanded = ValueNotifier(false);
   final Authservice auth = Authservice();
+  String? displayName;
+  String? avatarUrl;
   bool isSaved = false;
 
 
