@@ -15,6 +15,7 @@ class _VideoPlayerWidgetState2 extends State<VideoPlayerWidget2> {
   late VideoPlayerController _controller;
   bool _isPlaying = false;
   bool _isSeeking = false;
+  // ignore: unused_field
   late double _videoPosition;
 
   @override

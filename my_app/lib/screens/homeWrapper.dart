@@ -1,15 +1,17 @@
 import 'dart:async';
-import 'package:my_app/map/screens/mapScreen.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:my_app/components/group/homepage/groupBar.dart';
 import 'package:my_app/components/group/homepage/memberBar.dart';
 import 'package:my_app/components/group/homepage/topBar.dart';
 import 'package:my_app/screens/chatScreen.dart';
 import 'package:my_app/screens/homeScreen.dart';
 import 'package:my_app/screens/reelScreen.dart';
+import 'package:my_app/screens/MenuScreen.dart';
+import 'package:my_app/components/group/menu/savePostScreen.dart';
+import 'package:my_app/map/screens/mapScreen.dart';
 import 'package:my_app/services/group/groupService.dart';
 import 'package:my_app/services/auth/authService.dart';
 
@@ -28,11 +30,9 @@ class _HomeWrapperState extends State<HomeWrapper> {
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
   bool _isSidebarOpen = false;
   final ScrollController _scrollController = ScrollController();
-  final ValueNotifier<List<Map<String, dynamic>>> userGroups =
-      ValueNotifier([]);
+  final ValueNotifier<List<Map<String, dynamic>>> userGroups = ValueNotifier([]);
   final ValueNotifier<String?> selectedGroupId = ValueNotifier(null);
-  final ValueNotifier<List<Map<String, dynamic>>> groupMembers =
-      ValueNotifier([]);
+  final ValueNotifier<List<Map<String, dynamic>>> groupMembers = ValueNotifier([]);
   late Stream<List<DocumentSnapshot>> postStream;
   late Stream<List<DocumentSnapshot>> videoStream;
   late List<Widget> _pages;
@@ -51,8 +51,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
   }
 
   void _onScroll() {
-    if (_scrollController.offset > _lastOffset &&
-        _scrollController.offset > 100) {
+    if (_scrollController.offset > _lastOffset && _scrollController.offset > 50) {
       if (_showNavBar.value) {
         setState(() {
           _showNavBar.value = false;
@@ -81,7 +80,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
     });
   }
 
-  // Khi nhấn vào nhóm trong minibar
   void _selectGroup(String groupId) {
     selectedGroupId.value = groupId;
     setState(() {
@@ -101,18 +99,26 @@ class _HomeWrapperState extends State<HomeWrapper> {
           userGroups: userGroups,
           scrollController: _scrollController,
           showNavBar: _showNavBar,
+          onGroupChanged: _fetchUserGroups,
         ),
         ReelScreen(
           selectedGroupId: selectedGroupId,
           postStream: videoStream,
           userGroups: userGroups,
         ),
+        MenuScreen(
+          onSavedPostsSelected: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SavedPostsScreen()),
+            );
+          },
+        ),
         _mapScreen,
       ];
     });
   }
 
-  // Lấy danh sách bài viết
   Stream<List<DocumentSnapshot>> _getPostsStream() {
     if (selectedGroupId.value == null) {
       return const Stream.empty();
@@ -126,10 +132,8 @@ class _HomeWrapperState extends State<HomeWrapper> {
         .map((snapshot) => snapshot.docs);
   }
 
-  // Lấy danh sách thành viên của nhóm
   Future<List<Map<String, dynamic>>> _fetchGroupMembers(String groupId) async {
-    final groupSnapshot =
-        await _fireStore.collection('groups').doc(groupId).get();
+    final groupSnapshot = await _fireStore.collection('groups').doc(groupId).get();
     List<String> memberIds = List<String>.from(groupSnapshot['members']);
 
     final userDocs = await _fireStore
@@ -141,7 +145,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
         .toList();
   }
 
-  // Lấy danh sách nhóm mà người dùng tham gia
   Future<void> _fetchUserGroups() async {
     final String userId = _auth.currentUser!.uid;
     final snapshot = await _fireStore
@@ -154,6 +157,34 @@ class _HomeWrapperState extends State<HomeWrapper> {
         .toList();
     if (userGroups.value.isNotEmpty) {
       _selectGroup(userGroups.value.first["id"]);
+    } else {
+      selectedGroupId.value = null;
+      setState(() {
+        _pages = [
+          HomePage(
+            selectedGroupId: selectedGroupId,
+            postStream: const Stream.empty(),
+            userGroups: userGroups,
+            scrollController: _scrollController,
+            showNavBar: _showNavBar,
+            onGroupChanged: _fetchUserGroups,
+          ),
+          ReelScreen(
+            selectedGroupId: selectedGroupId,
+            postStream: const Stream.empty(),
+            userGroups: userGroups,
+          ),
+          MenuScreen(
+            onSavedPostsSelected: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SavedPostsScreen()),
+              );
+            },
+          ),
+          _mapScreen,
+        ];
+      });
     }
   }
 
@@ -178,7 +209,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
   void _openPrivateChat(String userId, String userEmail) {
     if (selectedGroupId.value == null) return;
     setState(() {
-      _isSidebarOpen = !_isSidebarOpen;
+      _isSidebarOpen = !_isSidebarOpen; // Fixed typo: threeisSidebarOpen -> _isSidebarOpen
     });
     Navigator.push(
       context,
@@ -193,23 +224,37 @@ class _HomeWrapperState extends State<HomeWrapper> {
     );
   }
 
-  // Hiển thị popup tạo nhóm
   void _createGroup() {
     TextEditingController groupNameController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tạo Nhóm"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Tạo Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: groupNameController,
-          decoration: const InputDecoration(labelText: "Tên nhóm"),
+          decoration: InputDecoration(
+            labelText: "Tên nhóm",
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            filled: true,
+            fillColor: Colors.grey[800],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               String groupName = groupNameController.text.trim();
               if (groupName.isNotEmpty) {
@@ -217,10 +262,9 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   String joinLink = await _groupService.createGroup(groupName);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text("Nhóm đã tạo thành công! Link: $joinLink")),
+                    SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
+                  await _fetchUserGroups();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -235,24 +279,37 @@ class _HomeWrapperState extends State<HomeWrapper> {
     );
   }
 
-  // Hiển thị popup tham gia nhóm
   void _joinGroup() {
     TextEditingController joinLinkController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tham Gia Nhóm"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: joinLinkController,
-          decoration: const InputDecoration(labelText: "Nhập mã nhóm"),
+          decoration: InputDecoration(
+            labelText: "Nhập mã nhóm",
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            filled: true,
+            fillColor: Colors.grey[800],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               String joinLink = joinLinkController.text.trim();
               if (joinLink.isNotEmpty) {
@@ -262,6 +319,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Tham gia nhóm thành công!")),
                   );
+                  await _fetchUserGroups();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -300,7 +358,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
               });
             },
           ),
-
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             bottom: _showNavBar.value ? 0 : -70,
@@ -322,7 +379,8 @@ class _HomeWrapperState extends State<HomeWrapper> {
                 children: [
                   _buildNavItem(icon: Icons.home, index: 0),
                   _buildNavItem(icon: Icons.play_circle, index: 1),
-                  _buildNavItem(icon: Icons.map, index: 2),
+                  _buildNavItem(icon: Icons.menu, index: 2),
+                  _buildNavItem(icon: Icons.map, index: 3),
                 ],
               ),
             ),
@@ -339,7 +397,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nút đóng Sidebar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -354,7 +411,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
                       IconButton(
                         onPressed: _toggleSidebar,
                         icon: const Icon(Icons.close),
-                        color: Color.fromARGB(255, 226, 229, 233),
+                        color: const Color.fromARGB(255, 226, 229, 233),
                       ),
                     ],
                   ),
@@ -381,6 +438,9 @@ class _HomeWrapperState extends State<HomeWrapper> {
                             onPrivateChat: _openPrivateChat,
                             onGroupChat: _openGroupChat,
                             onClose: _toggleSidebar,
+                            userGroups: userGroups,
+                            selectedGroupIdNotifier: selectedGroupId,
+                            onGroupChanged: _fetchUserGroups,
                           ),
                         ),
                       ],
@@ -390,24 +450,22 @@ class _HomeWrapperState extends State<HomeWrapper> {
               ),
             ),
           ),
-          //TopApBar
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             top: _showNavBar.value ? 0 : -70,
             left: 0,
             right: 0,
             child: TopAppBarWidget(
-                onCreateGroup: _createGroup,
-                onJoinGroup: _joinGroup,
-                signOut: signOut,
-                userGroupsIsNotEmpty: userGroups.value.isNotEmpty),
+              onCreateGroup: _createGroup,
+              onJoinGroup: _joinGroup,
+              signOut: signOut,
+              userGroupsIsNotEmpty: userGroups.value.isNotEmpty,
+            ),
           ),
-          // Nút mở Sidebar (cố định bên trái)
           if (_currentIndex.value != 2)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 400),
-              left:
-                  _isSidebarOpen ? MediaQuery.of(context).size.width * 0.8 : 0,
+              left: _isSidebarOpen ? MediaQuery.of(context).size.width * 0.8 : 0,
               top: MediaQuery.of(context).size.height * 0.4,
               child: GestureDetector(
                 onTap: _toggleSidebar,
@@ -416,8 +474,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   height: 70,
                   decoration: const BoxDecoration(
                     color: Color.fromARGB(255, 218, 231, 243),
-                    borderRadius:
-                        BorderRadius.horizontal(right: Radius.circular(50)),
+                    borderRadius: BorderRadius.horizontal(right: Radius.circular(50)),
                   ),
                 ),
               ),
@@ -425,7 +482,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
           ValueListenableBuilder<int>(
             valueListenable: _currentIndex,
             builder: (context, pageIndex, child) {
-              if (pageIndex != 2) return SizedBox.shrink();
+              if (pageIndex != 3) return const SizedBox.shrink();
               return Positioned(
                 top: 16,
                 left: 16,
@@ -451,9 +508,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
         onTap: () {
           setState(() {
             _onNavTap(index);
-            if (_currentIndex.value != 0) ;
-
-            if (_currentIndex.value != 0) {
+            if (_currentIndex.value != 0 && _currentIndex.value != 2) {
               _showNavBar.value = false;
             } else {
               _showNavBar.value = true;
