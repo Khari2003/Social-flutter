@@ -7,6 +7,7 @@ import 'package:my_app/model/user/user.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:my_app/components/group/post/ImageGalleryScreen.dart';
+import 'package:intl/intl.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Posting post;
@@ -110,6 +111,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         ),
       ),
     );
+  }
+
+  String formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 60) {
+      return "Cách đây ${difference.inMinutes} phút";
+    } else if (difference.inHours < 24) {
+      return "Cách đây ${difference.inHours} giờ";
+    } else if (difference.inDays < 6) {
+      return "Cách đây ${difference.inDays} ngày";
+    } else if (difference.inDays < 365) {
+      return DateFormat("dd 'tháng' MM").format(timestamp);
+    } else {
+      return DateFormat("dd 'tháng' MM yyyy").format(timestamp);
+    }
   }
 
   @override
@@ -261,7 +279,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Đăng vào: ${widget.post.timestamp.toDate()}",
+                    "Đăng vào: ${formatTimestamp(widget.post.timestamp.toDate())}",
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFFE2E5E9),

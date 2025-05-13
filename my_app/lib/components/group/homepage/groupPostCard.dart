@@ -154,7 +154,9 @@ class _GroupPostCardState extends State<GroupPostCard> {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
-    if (difference.inHours < 24) {
+    if (difference.inMinutes < 60) {
+      return "Cách đây ${difference.inMinutes} phút";
+    } else if (difference.inHours < 24) {
       return "Cách đây ${difference.inHours} giờ";
     } else if (difference.inDays < 6) {
       return "Cách đây ${difference.inDays} ngày";

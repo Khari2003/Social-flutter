@@ -369,7 +369,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
             child: Container(
               height: 70,
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: Colors.black,
                 border: const Border(
                   top: BorderSide(
                     color: Color.fromARGB(255, 39, 41, 42),
