@@ -342,6 +342,9 @@ class _HomeWrapperState extends State<HomeWrapper> {
                 if (_currentIndex.value != 0) {
                   _showNavBar.value = false;
                 }
+                else{
+                  _showNavBar.value = true;
+                }
               });
             },
           ),
@@ -506,7 +509,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
         onTap: () {
           setState(() {
             _onNavTap(index);
-            if (_currentIndex.value != 0 && _currentIndex.value != 2) {
+            if (_currentIndex.value != 0 && _currentIndex.value != 3) {
               _showNavBar.value = false;
             } else {
               _showNavBar.value = true;
