@@ -142,7 +142,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
         .where(FieldPath.documentId, whereIn: memberIds)
         .get();
     return userDocs.docs
-        .map((doc) => {"id": doc.id, "email": doc["email"], "avatar": ""})
+        .map((doc) => {"id": doc.id, "email": doc["email"], "fullName": doc["fullName"] ,"avatar": doc['avatarUrl']??""})
         .toList();
   }
 

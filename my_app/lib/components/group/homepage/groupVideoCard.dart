@@ -1,12 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:my_app/components/group/menu/ProfileScreen.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
 import 'package:video_player/video_player.dart';
-import 'package:my_app/components/group/homepage/share_post_dialog.dart'; // Import SharePostWidget
+import 'package:intl/intl.dart' as intl;
+import 'package:my_app/components/group/homepage/share_post_dialog.dart';
 
 class GroupVideoCard extends StatefulWidget {
   final Posting post;
@@ -30,6 +33,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
   final Authservice auth = Authservice();
   String? email;
+  String? name;
+  String? avatarUrl;
   late VideoPlayerController _controller;
   bool _isSeeking = false;
   double _videoPosition = 0;
@@ -79,9 +84,11 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   }
 
   Future<void> _fetchEmail() async {
-    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
+    final fetchedUser = await auth.getUserById(widget.post.userId);
     setState(() {
-      email = fetchedEmail;
+      name = fetchedUser!.fullName;
+      avatarUrl = fetchedUser.avatarUrl;
+      email = fetchedUser.userEmail;
       email = email != null && email!.contains('@')
           ? email!.split('@')[0]
           : email ?? 'Ẩn danh';
@@ -140,7 +147,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
       builder: (context) => SharePostWidget(
         // Thay SharePostDialog bằng SharePostWidget
         post: widget.post,
-        postOwnerName: email ?? 'Ẩn danh',
+        postOwnerName: name ?? email ?? 'Ẩn danh',
       ),
     );
   }
@@ -182,6 +189,40 @@ class _GroupVideoCardState extends State<GroupVideoCard>
     _controller.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Widget _buildAvatar(String? avatarUrl) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: Colors.grey[800],
+      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+          ? CachedNetworkImageProvider(avatarUrl)
+          : null,
+      child: avatarUrl == null || avatarUrl.isEmpty
+          ? const Icon(
+              Icons.person_outline,
+              color: Colors.white,
+              size: 24,
+            )
+          : null,
+    );
+  }
+
+  String formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 60) {
+      return "Cách đây ${difference.inMinutes} phút";
+    } else if (difference.inHours < 24) {
+      return "Cách đây ${difference.inHours} giờ";
+    } else if (difference.inDays < 6) {
+      return "Cách đây ${difference.inDays} ngày";
+    } else if (difference.inDays < 365) {
+      return intl.DateFormat("dd 'tháng' MM").format(timestamp);
+    } else {
+      return intl.DateFormat("dd 'tháng' MM yyyy").format(timestamp);
+    }
   }
 
   @override
@@ -319,19 +360,48 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                     ),
                   ),
                   Positioned(
-                    top: 16,
+                    top: 40,
                     left: 12,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          email ?? 'Ẩn danh',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(children: [
+                          GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfileScreen(
+                                  userId: widget.post.userId,
+                                  groupId: widget.post.groupId,
+                                ),
+                              ),
+                            );
+                          },
+                          child: _buildAvatar(avatarUrl),
                         ),
+                          const SizedBox(
+                            width: 10,
+                          ),
+                          Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name ?? email ?? 'Ẩn danh',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  formatTimestamp(
+                                      widget.post.timestamp.toDate()),
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.grey[500]),
+                                ),
+                              ])
+                        ]),
                         const SizedBox(height: 4),
                         SizedBox(
                           width: screenSize.width * 0.7,
