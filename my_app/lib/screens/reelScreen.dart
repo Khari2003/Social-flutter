@@ -26,12 +26,15 @@ class ReelScreen extends StatefulWidget {
   _ReelScreenState createState() => _ReelScreenState();
 }
 
-class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMixin {
+class _ReelScreenState extends State<ReelScreen>
+    with AutomaticKeepAliveClientMixin {
   final GroupService _groupService = GroupService();
   final GroupPostingService _groupPostingService = GroupPostingService();
   List<File> selectedImages = [];
   List<File> selectedVideos = [];
   List<File> selectedVoices = [];
+  late PageController _pageController;
+  int _currentPage = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -39,6 +42,15 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
+    _pageController.addListener(() {
+      final newPage = _pageController.page?.round() ?? 0;
+      if (newPage != _currentPage) {
+        setState(() {
+          _currentPage = newPage;
+        });
+      }
+    });
   }
 
   @override
@@ -80,7 +92,8 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
               String groupName = groupNameController.text.trim();
@@ -89,18 +102,22 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
                   String joinLink = await _groupService.createGroup(groupName);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
+                    SnackBar(
+                        content:
+                            Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
                   // Refresh group list
                   final snapshot = await FirebaseFirestore.instance
                       .collection('groups')
-                      .where('members', arrayContains: FirebaseAuth.instance.currentUser!.uid)
+                      .where('members',
+                          arrayContains: FirebaseAuth.instance.currentUser!.uid)
                       .get();
                   widget.userGroups.value = snapshot.docs
                       .map((doc) => {"id": doc.id, "name": doc['groupName']})
                       .toList();
                   if (widget.userGroups.value.isNotEmpty) {
-                    widget.selectedGroupId.value = widget.userGroups.value.first['id'];
+                    widget.selectedGroupId.value =
+                        widget.userGroups.value.first['id'];
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +139,8 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: joinLinkController,
           decoration: InputDecoration(
@@ -145,7 +163,8 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
               String joinLink = joinLinkController.text.trim();
@@ -159,13 +178,15 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
                   // Refresh group list
                   final snapshot = await FirebaseFirestore.instance
                       .collection('groups')
-                      .where('members', arrayContains: FirebaseAuth.instance.currentUser!.uid)
+                      .where('members',
+                          arrayContains: FirebaseAuth.instance.currentUser!.uid)
                       .get();
                   widget.userGroups.value = snapshot.docs
                       .map((doc) => {"id": doc.id, "name": doc['groupName']})
                       .toList();
                   if (widget.userGroups.value.isNotEmpty) {
-                    widget.selectedGroupId.value = widget.userGroups.value.first['id'];
+                    widget.selectedGroupId.value =
+                        widget.userGroups.value.first['id'];
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -200,8 +221,10 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
                       : StreamBuilder<List<DocumentSnapshot>>(
                           stream: widget.postStream,
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(child: CircularProgressIndicator());
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                  child: CircularProgressIndicator());
                             }
 
                             if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -218,15 +241,15 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
                             }
 
                             final posts = snapshot.data!
-                                .map((doc) => Posting.fromMap(doc.data() as Map<String, dynamic>))
-                                .where((post) => post.videoUrl != null && post.videoUrl!.isNotEmpty)
-                                .map((post) => GroupVideoCard(
-                                      post: post,
-                                      postService: _groupPostingService,
-                                    ))
+                                .map((doc) => Posting.fromMap(
+                                    doc.data() as Map<String, dynamic>))
+                                .where((post) =>
+                                    post.videoUrl != null &&
+                                    post.videoUrl!.isNotEmpty)
                                 .toList();
 
                             return PageView.builder(
+                              controller: _pageController,
                               scrollDirection: Axis.vertical,
                               itemCount: posts.length,
                               itemBuilder: (context, index) {
@@ -235,7 +258,11 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
                                   height: MediaQuery.of(context).size.height,
                                   color: Colors.black,
                                   child: Center(
-                                    child: posts[index],
+                                    child: GroupVideoCard(
+                                      post: posts[index],
+                                      postService: _groupPostingService,
+                                      isVisible: _currentPage == index,
+                                    ),
                                   ),
                                 );
                               },
@@ -244,8 +271,8 @@ class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMi
                         ),
                 ),
               ],
-                ),
             ),
+          ),
         ],
       ),
     );
