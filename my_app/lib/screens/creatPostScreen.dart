@@ -22,39 +22,30 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final List<File> _selectedVideos = [];
   final Authservice auth = Authservice();
   final ValueNotifier<bool> _isPosting = ValueNotifier(false);
-  String? displayName;
+  String? email;
+  String? name;
   String? avatarUrl;
   bool isLoadingAvatar = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchUserData();
+    _fetchEmail();
     _postContentController.addListener(() {
       setState(() {});
     });
   }
 
-  Future<void> _fetchUserData() async {
-    try {
-      final user = await auth.getUserById(FirebaseAuth.instance.currentUser!.uid);
-      setState(() {
-        displayName = user?.fullName?.isNotEmpty == true
-            ? user!.fullName
-            : user?.userEmail?.isNotEmpty == true
-                ? user!.userEmail!.split('@')[0]
-                : 'Ẩn danh';
-        avatarUrl = user?.avatarUrl;
-        isLoadingAvatar = false;
-      });
-    } catch (e) {
-      print("Error fetching user data: $e");
-      setState(() {
-        displayName = 'Ẩn danh';
-        avatarUrl = null;
-        isLoadingAvatar = false;
-      });
-    }
+  Future<void> _fetchEmail() async {
+    final fetchedName =
+        await auth.getUserById(FirebaseAuth.instance.currentUser!.uid);
+    setState(() {
+      name = fetchedName!.fullName;
+      email = fetchedName.userEmail;
+      email = email!.contains('@') ? email!.split('@')[0] : email;
+      avatarUrl = fetchedName.avatarUrl;
+      isLoadingAvatar = false;
+    });
   }
 
   Future<void> _pickMedia(ImageSource source, String type) async {
@@ -101,16 +92,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return CircleAvatar(
       radius: 20,
       backgroundColor: Colors.grey[800],
-      backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
-          ? CachedNetworkImageProvider(avatarUrl!)
-          : null,
-      child: avatarUrl == null || avatarUrl!.isEmpty
-          ? const Icon(
+      child: avatarUrl != null
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl!,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const CircularProgressIndicator(
+                  color: Colors.blueAccent,
+                  strokeWidth: 2,
+                ),
+                errorWidget: (context, url, error) => const Icon(
+                  Icons.person_outline,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            )
+          : const Icon(
               Icons.person_outline,
               color: Colors.white,
               size: 24,
-            )
-          : null,
+            ),
     );
   }
 

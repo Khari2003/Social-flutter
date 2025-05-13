@@ -11,12 +11,14 @@ import 'package:my_app/components/group/homepage/share_post_dialog.dart'; // Imp
 class GroupVideoCard extends StatefulWidget {
   final Posting post;
   final GroupPostingService postService;
+  final bool isVisible;
 
-  const GroupVideoCard({
-    Key? key,
-    required this.post,
-    required this.postService,
-  }) : super(key: key);
+  const GroupVideoCard(
+      {Key? key,
+      required this.post,
+      required this.postService,
+      required this.isVisible})
+      : super(key: key);
 
   @override
   _GroupVideoCardState createState() => _GroupVideoCardState();
@@ -43,10 +45,16 @@ class _GroupVideoCardState extends State<GroupVideoCard>
     super.initState();
     _fetchEmail();
     _checkSavedStatus();
+    _initializeController();
+  }
+
+  void _initializeController() {
     _controller = VideoPlayerController.network(widget.post.videoUrl!)
       ..initialize().then((_) {
         setState(() {});
-        _controller.play();
+        if (widget.isVisible) {
+          _controller.play();
+        }
         _controller.addListener(() {
           if (!_isSeeking && _controller.value.isInitialized) {
             setState(() {
@@ -56,6 +64,18 @@ class _GroupVideoCardState extends State<GroupVideoCard>
           }
         });
       });
+  }
+
+  @override
+  void didUpdateWidget(covariant GroupVideoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isVisible != oldWidget.isVisible) {
+      if (widget.isVisible && _controller.value.isInitialized) {
+        _controller.play();
+      } else {
+        _controller.pause();
+      }
+    }
   }
 
   Future<void> _fetchEmail() async {
@@ -117,7 +137,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SharePostWidget( // Thay SharePostDialog bằng SharePostWidget
+      builder: (context) => SharePostWidget(
+        // Thay SharePostDialog bằng SharePostWidget
         post: widget.post,
         postOwnerName: email ?? 'Ẩn danh',
       ),
@@ -151,7 +172,9 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   void _seekTo(double value) {
     final position = Duration(milliseconds: value.toInt());
     _controller.seekTo(position);
-    _controller.play();
+    if (widget.isVisible) {
+      _controller.play();
+    }
   }
 
   @override
@@ -192,11 +215,13 @@ class _GroupVideoCardState extends State<GroupVideoCard>
               child: Stack(
                 children: [
                   Center(
-                    child: buildVideoPreview(
-                      context,
-                      widget.post.videoUrl!,
-                      controller: _controller,
-                    ),
+                    child: _controller.value.isInitialized
+                        ? buildVideoPreview(
+                            context,
+                            widget.post.videoUrl!,
+                            controller: _controller,
+                          )
+                        : const Center(child: CircularProgressIndicator()),
                   ),
                   Positioned(
                     right: 8,
@@ -208,13 +233,15 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                           onPressed: toggleLike,
                           icon: Icon(
                             isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
-                            color: isLiked ? Colors.blueAccent : Colors.grey[500],
+                            color:
+                                isLiked ? Colors.blueAccent : Colors.grey[500],
                             size: buttonSize,
                           ),
                         ),
                         Text(
                           likeCount > 0 ? '$likeCount' : '0',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
                         const SizedBox(height: 12),
                         IconButton(
@@ -223,8 +250,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                             context: context,
                             isScrollControlled: true,
                             shape: const RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.vertical(top: Radius.circular(16)),
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(16)),
                             ),
                             builder: (context) => StatefulBuilder(
                               builder: (context, setModalState) {
@@ -248,9 +275,9 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                                         toggleLike();
                                         setModalState(() {});
                                       },
-                                      commentStream: widget.postService.getComments(
-                                        widget.post.groupId,
-                                        widget.post.postId),
+                                      commentStream: widget.postService
+                                          .getComments(widget.post.groupId,
+                                              widget.post.postId),
                                     );
                                   },
                                 );
@@ -267,7 +294,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                           widget.post.comments.isNotEmpty
                               ? '${widget.post.comments.length}'
                               : '0',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
                         const SizedBox(height: 12),
                         IconButton(
@@ -330,14 +358,17 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                           enabledThumbRadius: _isSeeking ? 6 : 0,
                         ),
                         trackHeight: 2,
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 12),
                       ),
                       child: Slider(
                         min: 0.0,
-                        max: _controller.value.duration.inMilliseconds.toDouble(),
+                        max: _controller.value.duration.inMilliseconds
+                            .toDouble(),
                         value: _isSeeking
                             ? _videoPosition
-                            : _controller.value.position.inMilliseconds.toDouble(),
+                            : _controller.value.position.inMilliseconds
+                                .toDouble(),
                         onChanged: (value) {
                           setState(() {
                             _isSeeking = true;

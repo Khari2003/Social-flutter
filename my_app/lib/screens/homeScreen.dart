@@ -378,6 +378,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                   ...filteredPosts.map((post) => Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                                         child: GroupPostCard(
+                                          key: ValueKey(post.postId),
                                           post: post,
                                           postService: _groupPostingService,
                                         ),

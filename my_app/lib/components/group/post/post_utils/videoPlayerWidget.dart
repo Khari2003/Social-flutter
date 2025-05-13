@@ -72,7 +72,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
-    // Không dispose controller ở đây vì nó được quản lý ở GroupVideoCard
     super.dispose();
   }
 }
