@@ -17,6 +17,7 @@ class HomePage extends StatefulWidget {
   final ValueNotifier<List<Map<String, dynamic>>> userGroups;
   final ScrollController scrollController;
   final ValueNotifier<bool> showNavBar;
+  final VoidCallback? onGroupChanged;
 
   const HomePage({
     Key? key,
@@ -25,6 +26,7 @@ class HomePage extends StatefulWidget {
     required this.userGroups,
     required this.scrollController,
     required this.showNavBar,
+    required this.onGroupChanged,
   }) : super(key: key);
 
   @override
@@ -52,7 +54,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
   @override
   void dispose() {
     _searchController.dispose();
-    widget.scrollController.dispose();
     super.dispose();
   }
 
@@ -112,6 +113,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
+                  widget.onGroupChanged?.call();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -166,6 +168,7 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Tham gia nhóm thành công!")),
                   );
+                  widget.onGroupChanged?.call();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),

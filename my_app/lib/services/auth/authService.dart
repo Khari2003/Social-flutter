@@ -116,12 +116,11 @@ class Authservice extends ChangeNotifier {
     return await Geolocator.getCurrentPosition();
   }
 
-  Future<UserCredential> signUpWithEmailAndPassword(String email,
+  Future<void> signUpWithEmailAndPassword(String email,
       String password, bool isAllowedLocation, GeoPoint? location) async {
     try {
       UserCredential userCredential = await _firebaseAuth
           .createUserWithEmailAndPassword(email: email, password: password);
-
       model.User newUser = model.User(
         userId: userCredential.user!.uid,
         userEmail: email,
@@ -129,9 +128,7 @@ class Authservice extends ChangeNotifier {
         location: isAllowedLocation ? location : null,
         isAllowedLocation: isAllowedLocation,
       );
-
       _fireStore.collection('users').doc(newUser.userId).set(newUser.toMap());
-      return userCredential;
     } on FirebaseAuthException catch (e) {
       throw Exception(e.code);
     }

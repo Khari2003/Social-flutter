@@ -48,8 +48,38 @@ class _HomeWrapperState extends State<HomeWrapper> {
     _mapScreen = MapScreen();
     _pages = [];
     _scrollController.addListener(_onScroll);
+    _initializePages();
     _fetchUserGroups();
     _pageController = PageController(initialPage: _currentIndex.value);
+  }
+
+  void _initializePages() {
+    postStream = const Stream.empty(); // Stream mặc định khi chưa chọn nhóm
+    videoStream = const Stream.empty();
+    _pages = [
+      HomePage(
+        selectedGroupId: selectedGroupId,
+        postStream: postStream,
+        userGroups: userGroups,
+        scrollController: _scrollController,
+        showNavBar: _showNavBar,
+        onGroupChanged: _fetchUserGroups,
+      ),
+      ReelScreen(
+        selectedGroupId: selectedGroupId,
+        postStream: videoStream,
+        userGroups: userGroups,
+      ),
+      MenuScreen(
+        onSavedPostsSelected: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SavedPostsScreen()),
+          );
+        },
+      ),
+      _mapScreen,
+    ];
   }
 
   void _onScroll() {
@@ -103,6 +133,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
           userGroups: userGroups,
           scrollController: _scrollController,
           showNavBar: _showNavBar,
+          onGroupChanged: _fetchUserGroups,
         ),
         ReelScreen(
           selectedGroupId: selectedGroupId,
@@ -231,6 +262,8 @@ class _HomeWrapperState extends State<HomeWrapper> {
                         content:
                             Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
+                  // Cập nhật danh sách nhóm
+                  await _fetchUserGroups();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -272,6 +305,8 @@ class _HomeWrapperState extends State<HomeWrapper> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Tham gia nhóm thành công!")),
                   );
+                  // Cập nhật danh sách nhóm
+                  await _fetchUserGroups();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -423,7 +458,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
                 );
               }),
           // Nút mở Sidebar (cố định bên trái)
-          if (_currentIndex.value != 2)
+          if (_currentIndex.value != 2 && userGroups.value.isNotEmpty)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 400),
               left:

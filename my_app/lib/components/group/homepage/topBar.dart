@@ -17,13 +17,13 @@ class TopAppBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-        height: 90, 
+        height: 90,
         decoration: BoxDecoration(
           color: Colors.black87,
           border: Border(
             bottom: BorderSide(
-              color: const Color.fromARGB(255, 39, 41, 42), 
-              width: 1.0, 
+              color: const Color.fromARGB(255, 39, 41, 42),
+              width: 1.0,
             ),
           ),
         ),
@@ -39,20 +39,18 @@ class TopAppBarWidget extends StatelessWidget {
               ),
               Row(
                 children: [
-                  if (userGroupsIsNotEmpty)
-                    IconButton(
-                      onPressed: onCreateGroup,
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: Color.fromARGB(255, 226, 229, 233),
-                      tooltip: "Tạo nhóm",
-                    ),
-                  if (userGroupsIsNotEmpty)
-                    IconButton(
-                      onPressed: onJoinGroup,
-                      icon: const Icon(Icons.group_add),
-                      color: Color.fromARGB(255, 226, 229, 233),
-                      tooltip: "Tham gia nhóm",
-                    ),
+                  IconButton(
+                    onPressed: onCreateGroup,
+                    icon: const Icon(Icons.add_circle_outline),
+                    color: Color.fromARGB(255, 226, 229, 233),
+                    tooltip: "Tạo nhóm",
+                  ),
+                  IconButton(
+                    onPressed: onJoinGroup,
+                    icon: const Icon(Icons.group_add),
+                    color: Color.fromARGB(255, 226, 229, 233),
+                    tooltip: "Tham gia nhóm",
+                  ),
                   IconButton(
                     onPressed: signOut,
                     icon: const Icon(Icons.logout),
