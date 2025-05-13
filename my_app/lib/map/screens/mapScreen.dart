@@ -1,14 +1,16 @@
-// ignore_for_file: file_names
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/locationService.dart';
 import '../services/routeService.dart';
 import '../services/storeService.dart';
+import '../../services/auth/authService.dart'; 
 import '../widgets/StoreDetailWidget.dart';
 import '../widgets/flutterMapWidget.dart';
 import '../widgets/searchStoreWidget.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 
 class MapScreen extends StatefulWidget {
   final String? selectedGroupId;
@@ -16,14 +18,12 @@ class MapScreen extends StatefulWidget {
   const MapScreen({Key? key, this.selectedGroupId}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,AutomaticKeepAliveClientMixin {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   LatLng? currentLocation;
   List<Map<String, dynamic>> allStores = [];
-  List<Map<String, dynamic>> traffic = [];
   List<Map<String, dynamic>> filteredStores = [];
   List<LatLng> routeCoordinates = [];
   double radius = 1000.0;
@@ -31,14 +31,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
   bool shouldDrawRoute = false;
   Map<String, dynamic>? selectedStore;
   final MapController _mapController = MapController();
-  bool isNavigating = false; // Xác định chế độ điều hướng
-  double? userHeading; // Hướng của người dùng
+  bool isNavigating = false;
+  double? userHeading;
   Map<String, dynamic>? navigatingStore;
   String routeType = 'driving';
   AnimationController? _animationController;
   LatLng? searchedLocation;
   bool get wantKeepAlive => true;
-  @override
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +66,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
       allStores = results[1] as List<Map<String, dynamic>>;
       updateFilteredStores();
     });
+
+    // Cập nhật vị trí ban đầu vào Firestore
+    if (currentLocation != null) {
+      final authService = Provider.of<Authservice>(context, listen: false);
+      if (authService.currentUser != null) {
+        await authService.updateUserLocation(
+          authService.currentUser!.uid,
+          GeoPoint(currentLocation!.latitude, currentLocation!.longitude),
+        );
+      }
+    }
   }
 
   void updateFilteredStores() {
@@ -84,50 +95,49 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
 
   void _startNavigation() {
     if (currentLocation != null) {
-      _mapController.move(currentLocation!, 20.0); // Zoom vào vị trí người dùng
-      _trackUserLocationAndDirection(); // Theo dõi vị trí và hướng của người dùng
+      _mapController.move(currentLocation!, 20.0);
+      _trackUserLocationAndDirection();
     }
   }
 
   void _trackUserLocationAndDirection() {
     final locationService = LocationService();
+    final authService = Provider.of<Authservice>(context, listen: false);
     LatLng? previousLocation = currentLocation;
 
     locationService.onLocationChanged.listen((position) async {
+      // Bỏ qua nếu độ chính xác thấp
+      if (position.accuracy > 20) return;
+
       final newLocation = LatLng(position.latitude, position.longitude);
-      _animateMapToLocation(newLocation);
-
+      
+      // Kiểm tra khoảng cách di chuyển để tránh cập nhật không cần thiết
       if (previousLocation != null) {
-        // Tính toán khoảng cách giữa vị trí cũ và mới
         final distance = Distance().as(LengthUnit.Meter, previousLocation!, newLocation);
-
-        // Nếu khoảng cách quá lớn, sử dụng nội suy để di chuyển mượt mà
-        if (distance > 1) {
-          final steps = 10; // Số bước di chuyển
-          final latStep = (newLocation.latitude - previousLocation!.latitude) / steps;
-          final lngStep = (newLocation.longitude - previousLocation!.longitude) / steps;
-
-          for (int i = 0; i < steps; i++) {
-            await Future.delayed(const Duration(milliseconds: 50)); // Độ trễ giữa các bước
-            setState(() {
-              currentLocation = LatLng(
-                previousLocation!.latitude + latStep * i,
-                previousLocation!.longitude + lngStep * i,
-              );
-            });
-          }
-        }
+        if (distance < 3) return; // Bỏ qua nếu di chuyển dưới 3 mét
       }
 
+      _animateMapToLocation(newLocation);
+
       setState(() {
-        currentLocation = newLocation; // Cập nhật vị trí cuối cùng
-        userHeading = position.heading; // Cập nhật hướng
+        currentLocation = newLocation;
+        userHeading = position.heading;
       });
 
+      // Cập nhật vị trí vào Firestore
+      if (authService.currentUser != null) {
+        await authService.updateUserLocation(
+          authService.currentUser!.uid,
+          GeoPoint(newLocation.latitude, newLocation.longitude),
+        );
+      }
+
       if (isNavigating) {
-        _mapController.move(newLocation, 20.0); // Di chuyển bản đồ
-        _checkIfOnRoute(newLocation); // Kiểm tra vị trí trên tuyến đường
-        _checkIfArrived(newLocation); // Thêm kiểm tra đến nơi
+        _mapController.move(newLocation, 20.0);
+        _checkIfOnRoute(newLocation);
+        _checkIfArrived(newLocation);
+      } else {
+        _mapController.move(newLocation, 14.0);
       }
 
       previousLocation = newLocation;
@@ -135,10 +145,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
   }
 
   void _animateMapToLocation(LatLng newLocation) {
-    if (_animationController == null) return;
+    if (_animationController == null || currentLocation == null || _animationController!.isAnimating) {
+      return;
+    }
 
-    final latTween = Tween<double>(begin: currentLocation?.latitude, end: newLocation.latitude);
-    final lngTween = Tween<double>(begin: currentLocation?.longitude, end: newLocation.longitude);
+    final latTween = Tween<double>(begin: currentLocation!.latitude, end: newLocation.latitude);
+    final lngTween = Tween<double>(begin: currentLocation!.longitude, end: newLocation.longitude);
 
     final animation = CurvedAnimation(
       parent: _animationController!,
@@ -148,11 +160,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
     animation.addListener(() {
       _mapController.move(
         LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
-        _mapController.move(newLocation, 20.0) as double
+        isNavigating ? 20.0 : 14.0,
       );
     });
 
-    _animationController!.forward(from: 0.0);
+    _animationController!.forward(from: 0.0).then((_) {
+      _animationController!.reset();
+    });
   }
 
   Future<void> _checkIfOnRoute(LatLng userLocation) async {
@@ -161,11 +175,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
     final nextPoint = routeCoordinates.first;
     final distanceToNextPoint = Distance().as(LengthUnit.Meter, userLocation, nextPoint);
 
-    if (distanceToNextPoint < 5) { 
+    if (distanceToNextPoint < 5) {
       setState(() {
         routeCoordinates.removeAt(0);
       });
-    } else if (distanceToNextPoint > 10) { 
+    } else if (distanceToNextPoint > 20) { // Tăng ngưỡng lên 20 mét
+      // Kiểm tra độ chính xác của vị trí
+      final position = await Geolocator.getCurrentPosition();
+      if (position.accuracy > 20) return;
+
       final newRoute = await RouteService.fetchRouteForMapScreen(
         userLocation,
         routeCoordinates.last,
@@ -180,42 +198,49 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
   void _resetToInitialState() {
     setState(() {
       isNavigating = false;
-      routeCoordinates.clear(); // Xóa lộ trình
-      userHeading = null; // Xóa hướng người dùng
-      selectedStore = null; // Bỏ chọn cửa hàng
-      searchedLocation = null; // Xóa địa chỉ tìm kiếm
-      radius = 1000.0; // Reset bán kính
+      routeCoordinates.clear();
+      userHeading = null;
+      selectedStore = null;
+      navigatingStore = null;
+      searchedLocation = null;
+      radius = 1000.0;
       updateFilteredStores();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (currentLocation != null) {
+        _mapController.move(currentLocation!, 14.0);
+        _mapController.rotate(0);
+      }
     });
   }
 
   void _checkIfArrived(LatLng userLocation) {
-      if (routeCoordinates.isNotEmpty) {
-          final destination = routeCoordinates.last;
-          final distanceToDestination = Distance().as(LengthUnit.Meter, userLocation, destination);
+    if (routeCoordinates.isNotEmpty) {
+      final destination = routeCoordinates.last;
+      final distanceToDestination = Distance().as(LengthUnit.Meter, userLocation, destination);
 
-          if (distanceToDestination < 5) { // Ngưỡng 5m
-              setState(() {
-                  isNavigating = false;
-                  routeCoordinates.clear();
-              });
+      if (distanceToDestination < 5) {
+        setState(() {
+          isNavigating = false;
+          routeCoordinates.clear();
+        });
 
-              // Hiển thị thông báo đã đến nơi
-              showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                      title: const Text("Đã đến nơi"),
-                      content: const Text("Bạn đã đến điểm đến!"),
-                      actions: [
-                          TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text("OK"),
-                          ),
-                      ],
-                  ),
-              );
-          }
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Đã đến nơi"),
+            content: const Text("Bạn đã đến điểm đến!"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
       }
+    }
   }
 
   Future<void> updateRouteToStore(LatLng destination) async {
@@ -243,7 +268,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
       body: GestureDetector(
         onTap: () {
           setState(() {
-            selectedStore = null; // Ẩn StoreDetail khi nhấn ra ngoài
+            selectedStore = null;
           });
         },
         child: currentLocation == null
@@ -265,7 +290,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                         selectedStore = store;
                       });
                     },
-                    searchedLocation: searchedLocation,
                     onUserTap: (user) async {
                       final destination = LatLng(user['location']['lat'], user['location']['lng']);
                       await updateRouteToStore(destination);
@@ -274,9 +298,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                       });
                       _startNavigation();
                     },
+                    searchedLocation: searchedLocation,
                   ),
-
-                  // Nút tìm kiếm địa chỉ
                   Positioned(
                     top: 16.0,
                     right: 16.0,
@@ -295,11 +318,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                           LatLng newLocation = LatLng(lat, lon);
 
                           setState(() {
-                            searchedLocation = newLocation; // Lưu vị trí tìm kiếm
+                            searchedLocation = newLocation;
                             _mapController.move(newLocation, 16.0);
                           });
 
-                          // Tạo tuyến đường đến vị trí tìm kiếm
                           if (currentLocation != null) {
                             await updateRouteToStore(newLocation);
                           }
@@ -319,7 +341,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                               routeType = routeType == 'driving' ? 'walking' : 'driving';
                             });
 
-                            // Cập nhật lại tuyến đường
                             if (currentLocation != null && routeCoordinates.isNotEmpty) {
                               final newRoute = await RouteService.fetchRouteForMapScreen(
                                 currentLocation!,
@@ -338,14 +359,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                           ),
                         ),
                         const SizedBox(height: 16.0),
-                        // Nút "Bắt đầu đi"
                         if (routeCoordinates.isNotEmpty && !isNavigating)
                           FloatingActionButton(
                             onPressed: () {
                               setState(() {
-                                isNavigating = true; // Kích hoạt chế độ điều hướng
+                                isNavigating = true;
                               });
-                              _startNavigation(); // Bắt đầu điều hướng
+                              _startNavigation();
                             },
                             heroTag: 'start_navigation',
                             child: const Icon(
@@ -353,8 +373,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                             ),
                           ),
                         const SizedBox(height: 16.0),
-
-                        // Nút "Kết thúc"
                         if (isNavigating)
                           FloatingActionButton(
                             onPressed: _resetToInitialState,
@@ -366,22 +384,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                     ),
                   ),
                   Positioned(
-                          top: 160.0,
-                          right: 16.0,
-                          child: FloatingActionButton(
-                            onPressed: () {
-                              if (currentLocation != null) {
-                                if(isNavigating) {
-                                  _mapController.move(currentLocation!, 20.0);
-                                } else {
-                                  _mapController.move(currentLocation!, 14.0);
-                                }
-                              }
-                            },
-                            child: const Icon(Icons.my_location),
-                          ),
-                        ),
-                  if (selectedStore != null) 
+                    top: 160.0,
+                    right: 16.0,
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        if (currentLocation != null) {
+                          if (isNavigating) {
+                            _mapController.move(currentLocation!, 20.0);
+                          } else {
+                            _mapController.move(currentLocation!, 14.0);
+                          }
+                        }
+                      },
+                      child: const Icon(Icons.my_location),
+                    ),
+                  ),
+                  if (selectedStore != null)
                     Positioned(
                       bottom: 0,
                       left: 0,
@@ -398,7 +416,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                                   icon: const Icon(Icons.close),
                                   onPressed: () {
                                     setState(() {
-                                      selectedStore = null; // Ẩn thông tin chi tiết
+                                      selectedStore = null;
                                     });
                                   },
                                 ),

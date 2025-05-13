@@ -8,7 +8,7 @@ class Authservice extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
-  get currentUser => null;
+  User? get currentUser => _firebaseAuth.currentUser; // Sửa để trả về User từ FirebaseAuth
 
   Future<UserCredential> signInWithEmailAndPassword(
       String email, String password) async {
@@ -55,6 +55,7 @@ class Authservice extends ChangeNotifier {
       throw Exception("Error fetching email: $e");
     }
   }
+
   Future<void> savePost(String postId) async {
     try {
       String userId = _firebaseAuth.currentUser!.uid;
@@ -153,7 +154,7 @@ class Authservice extends ChangeNotifier {
     required String userId,
     String? fullName,
     String? avatarUrl,
-    String? coverPhotoUrl, // New field
+    String? coverPhotoUrl,
     String? phoneNumber,
     String? bio,
   }) async {
@@ -161,7 +162,7 @@ class Authservice extends ChangeNotifier {
       final Map<String, dynamic> updateData = {
         if (fullName != null) 'fullName': fullName,
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
-        if (coverPhotoUrl != null) 'coverPhotoUrl': coverPhotoUrl, // New field
+        if (coverPhotoUrl != null) 'coverPhotoUrl': coverPhotoUrl,
         if (phoneNumber != null) 'phoneNumber': phoneNumber,
         if (bio != null) 'bio': bio,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -208,17 +209,14 @@ class Authservice extends ChangeNotifier {
         .snapshots();
   }
 
-  // Lấy tất cả user từ Firestore
   Future<List<Map<String, dynamic>>> getAllUsers() async {
     try {
-      // Truy cập collection 'users'
       QuerySnapshot querySnapshot = await _fireStore.collection('users').get();
       
-      // Chuyển các document thành danh sách Map
       List<Map<String, dynamic>> usersList = querySnapshot.docs.map((doc) {
         return {
-          'uid': doc.id, // Lấy UID của user
-          ...doc.data() as Map<String, dynamic>, // Lấy dữ liệu của user
+          'uid': doc.id,
+          ...doc.data() as Map<String, dynamic>,
         };
       }).toList();
 
