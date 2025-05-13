@@ -26,7 +26,7 @@ class HomePage extends StatefulWidget {
     required this.userGroups,
     required this.scrollController,
     required this.showNavBar,
-    required this.onGroupChanged,
+    this.onGroupChanged,
   }) : super(key: key);
 
   @override
@@ -64,7 +64,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
         _searchController.clear();
         _searchQuery = '';
       }
-      print('Search visible: $_isSearchVisible'); // Debug trạng thái
     });
   }
 
@@ -215,11 +214,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
       backgroundColor: Colors.black87,
       body: Stack(
         children: [
-          // Nội dung chính của posts
           Positioned.fill(
             child: Column(
               children: [
-                // Nội dung chính
                 Expanded(
                   child: widget.userGroups.value.isEmpty
                       ? GroupSelectionWidget(
@@ -234,7 +231,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                             }
 
                             if (snapshot.hasError) {
-                              print('Stream error: ${snapshot.error}'); // Debug lỗi
                               return const Center(
                                 child: Text(
                                   "Lỗi tải bài đăng!",
@@ -260,13 +256,11 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                               );
                             }
 
-                            // Lọc bài đăng dựa trên từ khóa
                             final posts = snapshot.data!
                                 .map((doc) {
                                   try {
                                     return Posting.fromMap(doc.data() as Map<String, dynamic>);
                                   } catch (e) {
-                                    print('Error parsing post: $e'); // Debug lỗi
                                     return null;
                                   }
                                 })
@@ -278,11 +272,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                 ? posts
                                 : posts.where((post) {
                                     final content = post.content.toLowerCase();
-                                    print('Checking post content: $content'); // Debug nội dung
                                     return content.contains(_searchQuery);
                                   }).toList();
-
-                            print('Posts loaded: ${posts.length}, Filtered: ${filteredPosts.length}'); // Debug số bài đăng
 
                             return ListView(
                               controller: widget.scrollController,
@@ -298,12 +289,10 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                       ),
                                       child: Row(
                                         children: [
-                                          // InputAreaWidget
                                           Expanded(
                                             child: InputAreaWidget(onTap: _openCreatePostScreen),
                                           ),
                                           const SizedBox(width: 8),
-                                          // Nút tìm kiếm
                                           GestureDetector(
                                             onTap: _toggleSearchBar,
                                             child: Container(
@@ -332,7 +321,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                     );
                                   },
                                 ),
-                                // Thanh tìm kiếm
                                 AnimatedContainer(
                                   duration: const Duration(milliseconds: 300),
                                   height: _isSearchVisible ? 60 : 0,
@@ -343,7 +331,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                           onChanged: (value) {
                                             setState(() {
                                               _searchQuery = value.toLowerCase();
-                                              print('Search query: $_searchQuery'); // Debug query
                                             });
                                           },
                                           decoration: InputDecoration(
@@ -373,7 +360,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                         )
                                       : const SizedBox.shrink(),
                                 ),
-                                // Danh sách bài đăng
                                 if (filteredPosts.isEmpty && _searchQuery.isNotEmpty)
                                   const Padding(
                                     padding: EdgeInsets.all(16),
@@ -404,7 +390,6 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
               ],
             ),
           ),
-          // Nút tạo bài đăng
           ValueListenableBuilder<bool>(
             valueListenable: widget.showNavBar,
             builder: (context, show, child) {

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:my_app/components/group/homepage/groupSelectionWidget.dart';
@@ -25,8 +26,7 @@ class ReelScreen extends StatefulWidget {
   _ReelScreenState createState() => _ReelScreenState();
 }
 
-class _ReelScreenState extends State<ReelScreen>
-    with AutomaticKeepAliveClientMixin {
+class _ReelScreenState extends State<ReelScreen> with AutomaticKeepAliveClientMixin {
   final GroupService _groupService = GroupService();
   final GroupPostingService _groupPostingService = GroupPostingService();
   List<File> selectedImages = [];
@@ -35,6 +35,7 @@ class _ReelScreenState extends State<ReelScreen>
 
   @override
   bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -47,28 +48,40 @@ class _ReelScreenState extends State<ReelScreen>
 
   void signOut() {
     final authService = Provider.of<Authservice>(context, listen: false);
-
     authService.signOut();
   }
 
-  // Hiển thị popup tạo nhóm
   void _createGroup() {
     TextEditingController groupNameController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tạo Nhóm"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Tạo Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: groupNameController,
-          decoration: const InputDecoration(labelText: "Tên nhóm"),
+          decoration: InputDecoration(
+            labelText: "Tên nhóm",
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            filled: true,
+            fillColor: Colors.grey[800],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               String groupName = groupNameController.text.trim();
               if (groupName.isNotEmpty) {
@@ -76,10 +89,19 @@ class _ReelScreenState extends State<ReelScreen>
                   String joinLink = await _groupService.createGroup(groupName);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text("Nhóm đã tạo thành công! Link: $joinLink")),
+                    SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
+                  // Refresh group list
+                  final snapshot = await FirebaseFirestore.instance
+                      .collection('groups')
+                      .where('members', arrayContains: FirebaseAuth.instance.currentUser!.uid)
+                      .get();
+                  widget.userGroups.value = snapshot.docs
+                      .map((doc) => {"id": doc.id, "name": doc['groupName']})
+                      .toList();
+                  if (widget.userGroups.value.isNotEmpty) {
+                    widget.selectedGroupId.value = widget.userGroups.value.first['id'];
+                  }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -94,24 +116,37 @@ class _ReelScreenState extends State<ReelScreen>
     );
   }
 
-  // Hiển thị popup tham gia nhóm
   void _joinGroup() {
     TextEditingController joinLinkController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tham Gia Nhóm"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: joinLinkController,
-          decoration: const InputDecoration(labelText: "Nhập mã nhóm"),
+          decoration: InputDecoration(
+            labelText: "Nhập mã nhóm",
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            filled: true,
+            fillColor: Colors.grey[800],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               String joinLink = joinLinkController.text.trim();
               if (joinLink.isNotEmpty) {
@@ -121,6 +156,17 @@ class _ReelScreenState extends State<ReelScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Tham gia nhóm thành công!")),
                   );
+                  // Refresh group list
+                  final snapshot = await FirebaseFirestore.instance
+                      .collection('groups')
+                      .where('members', arrayContains: FirebaseAuth.instance.currentUser!.uid)
+                      .get();
+                  widget.userGroups.value = snapshot.docs
+                      .map((doc) => {"id": doc.id, "name": doc['groupName']})
+                      .toList();
+                  if (widget.userGroups.value.isNotEmpty) {
+                    widget.selectedGroupId.value = widget.userGroups.value.first['id'];
+                  }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -142,11 +188,9 @@ class _ReelScreenState extends State<ReelScreen>
       backgroundColor: const Color.fromARGB(255, 0, 0, 0),
       body: Stack(
         children: [
-          // Nội dung chính của posts
           Positioned.fill(
             child: Column(
               children: [
-                // Nội dung chính
                 Expanded(
                   child: widget.userGroups.value.isEmpty
                       ? GroupSelectionWidget(
@@ -156,10 +200,8 @@ class _ReelScreenState extends State<ReelScreen>
                       : StreamBuilder<List<DocumentSnapshot>>(
                           stream: widget.postStream,
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
                             }
 
                             if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -176,11 +218,8 @@ class _ReelScreenState extends State<ReelScreen>
                             }
 
                             final posts = snapshot.data!
-                                .map((doc) => Posting.fromMap(
-                                    doc.data() as Map<String, dynamic>))
-                                .where((post) =>
-                                    post.videoUrl != null &&
-                                    post.videoUrl!.isNotEmpty)
+                                .map((doc) => Posting.fromMap(doc.data() as Map<String, dynamic>))
+                                .where((post) => post.videoUrl != null && post.videoUrl!.isNotEmpty)
                                 .map((post) => GroupVideoCard(
                                       post: post,
                                       postService: _groupPostingService,
@@ -194,7 +233,7 @@ class _ReelScreenState extends State<ReelScreen>
                                 return Container(
                                   width: MediaQuery.of(context).size.width,
                                   height: MediaQuery.of(context).size.height,
-                                  color: Colors.black, 
+                                  color: Colors.black,
                                   child: Center(
                                     child: posts[index],
                                   ),
@@ -205,8 +244,8 @@ class _ReelScreenState extends State<ReelScreen>
                         ),
                 ),
               ],
+                ),
             ),
-          ),
         ],
       ),
     );
