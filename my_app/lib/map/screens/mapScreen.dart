@@ -6,8 +6,6 @@ import 'package:latlong2/latlong.dart';
 import '../services/locationService.dart';
 import '../services/routeService.dart';
 import '../services/storeService.dart';
-import '../widgets/radiusSlider.dart';
-import '../widgets/storeListWidget.dart';
 import '../widgets/StoreDetailWidget.dart';
 import '../widgets/flutterMapWidget.dart';
 import '../widgets/searchStoreWidget.dart';
@@ -302,7 +300,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                     ),
                   ),
                   Positioned(
-                    bottom: 150.0,
+                    bottom: 70.0,
                     right: 33.0,
                     child: Column(
                       children: [
@@ -359,77 +357,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                     ),
                   ),
                   Positioned(
-                    bottom: 16.0,
-                    left: 16.0,
-                    right: 16.0,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Card(
-                          margin: const EdgeInsets.all(8.0),
-                          elevation: 4,
-                          child: Container(
-                            constraints: const BoxConstraints(maxHeight: 300.0),
-                            padding: const EdgeInsets.all(8.0),
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (!isNavigating)
-                                    RadiusSlider(
-                                      radius: radius,
-                                      onRadiusChanged: (value) {
-                                        setState(() {
-                                          radius = value;
-                                          updateFilteredStores();
-                                        });
-                                      },
-                                    ),
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                    height: isStoreListVisible ? 200.0 : 0.0,
-                                    child: ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(8.0),
-                                      ),
-                                      child: StoreListWidget(
-                                        stores: filteredStores,
-                                        onSelectStore: (LatLng destination) {
-                                          final store = filteredStores.firstWhere(
-                                            (store) =>
-                                                store['coordinates']['lat'] == destination.latitude &&
-                                                store['coordinates']['lng'] == destination.longitude,
-                                            orElse: () => {},
-                                          );
-                                          setState(() {
-                                            selectedStore = store.isNotEmpty ? store : null;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: -20.0,
-                          left: 16.0,
-                          child: FloatingActionButton(
-                            onPressed: () {
-                              setState(() {
-                                isStoreListVisible = !isStoreListVisible;
-                              });
-                            },
-                            child: Icon(
-                              isStoreListVisible ? Icons.close : Icons.list,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: -20.0,
+                          top: 160.0,
                           right: 16.0,
                           child: FloatingActionButton(
                             onPressed: () {
@@ -444,9 +372,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                             child: const Icon(Icons.my_location),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
                   if (selectedStore != null) 
                     Positioned(
                       bottom: 0,

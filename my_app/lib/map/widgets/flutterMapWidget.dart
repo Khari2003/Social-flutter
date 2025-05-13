@@ -139,26 +139,6 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                       ),
                     ],
             ),
-            if (!widget.isNavigating)
-              TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: widget.radius, end: widget.radius),
-                duration: const Duration(milliseconds: 300),
-                builder: (context, value, child) {
-                  return CircleLayer(
-                    circles: [
-                      CircleMarker(
-                        point: animatedLocation,
-                        // ignore: deprecated_member_use
-                        color: Colors.blue.withOpacity(0.3),
-                        borderStrokeWidth: 1.0,
-                        borderColor: Colors.blue,
-                        useRadiusInMeter: true,
-                        radius: value,
-                      ),
-                    ],
-                  );
-                },
-              ),
             MarkerLayer(
               markers: [
                 ...buildMarkers(
