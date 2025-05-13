@@ -47,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ValueNotifier<List<File>> _selectedImages = ValueNotifier([]);
   final ValueNotifier<List<File>> _voiceFiles = ValueNotifier([]);
   final ValueNotifier<bool> _isRecording = ValueNotifier(false);
+  final ValueNotifier<bool> _isSending = ValueNotifier(false);
   String? _audioPath;
   final ValueNotifier<bool> _isAudioPlaying = ValueNotifier(false);
   String? _currentAudioUrl;
@@ -70,21 +71,35 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void sendMessage() async {
-    if (_messageController.text.isNotEmpty ||
-        _selectedImages.value.isNotEmpty ||
-        _voiceFiles.value.isNotEmpty) {
-      if (widget.type == "group") {
-        await _chatService.sendGroupMessage(
-            widget.GroupId, _messageController.text,
-            images: _selectedImages.value, voices: _voiceFiles.value);
-      } else if (widget.type == "private") {
-        await _chatService.sendPrivateMessage(
-            widget.GroupId, widget.receiverUserID, _messageController.text,
-            images: _selectedImages.value, voices: _voiceFiles.value);
+    if ((_messageController.text.isNotEmpty ||
+            _selectedImages.value.isNotEmpty ||
+            _voiceFiles.value.isNotEmpty) &&
+        !_isSending.value) {
+      _isSending.value = true;
+      try {
+        if (widget.type == "group") {
+          await _chatService.sendGroupMessage(
+              widget.GroupId, _messageController.text,
+              images: _selectedImages.value, voices: _voiceFiles.value);
+        } else if (widget.type == "private") {
+          await _chatService.sendPrivateMessage(
+              widget.GroupId, widget.receiverUserID, _messageController.text,
+              images: _selectedImages.value, voices: _voiceFiles.value);
+        }
+        _messageController.clear();
+        _selectedImages.value = [];
+        _voiceFiles.value = [];
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Lỗi khi gửi tin nhắn: $e',
+                style: const TextStyle(color: Colors.white)),
+          ),
+        );
+      } finally {
+        _isSending.value = false;
       }
-      _messageController.clear();
-      _selectedImages.value = [];
-      _voiceFiles.value = [];
     }
   }
 
@@ -816,9 +831,25 @@ class _ChatScreenState extends State<ChatScreen> {
               obscureText: false,
             ),
           ),
-          IconButton(
-            onPressed: sendMessage,
-            icon: const Icon(Icons.send, color: Colors.blueAccent, size: 28),
+          ValueListenableBuilder<bool>(
+            valueListenable: _isSending,
+            builder: (context, isSending, child) {
+              return IconButton(
+                onPressed: isSending ? null : sendMessage,
+                icon: isSending
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                        ),
+                      )
+                    : const Icon(Icons.send,
+                        color: Colors.blueAccent, size: 28),
+              );
+            },
           ),
         ],
       ),
