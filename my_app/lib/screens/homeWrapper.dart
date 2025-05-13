@@ -105,6 +105,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
           selectedGroupId: selectedGroupId,
           postStream: videoStream,
           userGroups: userGroups,
+          currentIndex: _currentIndex
         ),
         MenuScreen(
           onSavedPostsSelected: () {
@@ -173,6 +174,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
             selectedGroupId: selectedGroupId,
             postStream: const Stream.empty(),
             userGroups: userGroups,
+            currentIndex: _currentIndex
           ),
           MenuScreen(
             onSavedPostsSelected: () {
@@ -355,6 +357,9 @@ class _HomeWrapperState extends State<HomeWrapper> {
                 if (_currentIndex.value != 0) {
                   _showNavBar.value = false;
                 }
+                else{
+                  _showNavBar.value = true;
+                }
               });
             },
           ),
@@ -366,7 +371,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
             child: Container(
               height: 70,
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: Colors.black,
                 border: const Border(
                   top: BorderSide(
                     color: Color.fromARGB(255, 39, 41, 42),
@@ -508,7 +513,7 @@ class _HomeWrapperState extends State<HomeWrapper> {
         onTap: () {
           setState(() {
             _onNavTap(index);
-            if (_currentIndex.value != 0 && _currentIndex.value != 2) {
+            if (_currentIndex.value != 0 && _currentIndex.value != 3) {
               _showNavBar.value = false;
             } else {
               _showNavBar.value = true;
