@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:my_app/components/group/homepage/groupBar.dart';
 import 'package:my_app/components/group/homepage/memberBar.dart';
 import 'package:my_app/components/group/homepage/topBar.dart';
-// import 'package:my_app/map/screens/mapScreen.dart';
 import 'package:my_app/screens/chatScreen.dart';
 import 'package:my_app/screens/homeScreen.dart';
 import 'package:my_app/screens/reelScreen.dart';
@@ -443,7 +442,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
                 ),
               ),
             ),
-          //Quay lại khi ở MapScreen
           ValueListenableBuilder<int>(
             valueListenable: _currentIndex,
             builder: (context, pageIndex, child) {
