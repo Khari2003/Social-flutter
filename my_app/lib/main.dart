@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return  MaterialApp(
       title: 'Flutter Map Demo',
-      home: AuthGate(), // Ensures AuthGate is used for authentication flow
+      home: AuthGate(), 
     );
   }
 }

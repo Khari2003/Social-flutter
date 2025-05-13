@@ -14,12 +14,13 @@ Widget buildCommentSection(
   TextEditingController? controller,
   bool? isLiked,
   int? likeCount,
-  bool? isCommenting,
+  ValueNotifier<bool>? isCommenting,
   VoidCallback? addComment,
   VoidCallback? toggleLike,
   bool isComment = true,
   bool isfullheight = true,
   ScrollController? scrollController,
+  required Stream<List<String>> commentStream,
 }) {
   return Container(
     height: MediaQuery.of(context).size.height * 0.6,
@@ -29,34 +30,46 @@ Widget buildCommentSection(
         if (isComment) buildLikeSection(post, isLiked!, likeCount!, toggleLike),
         // Danh sách bình luận
         Expanded(
-          child: post.comments.isEmpty
-              ? const Center(
+          child: StreamBuilder<List<String>>(
+            stream: commentStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(
                   child: Text(
                     "Chưa có bình luận nào.",
                     style: TextStyle(color: Colors.white),
                   ),
-                )
-              : ListView.builder(
-                  controller: scrollController,
-                  itemCount: post.comments.length,
-                  itemBuilder: (context, index) {
-                    List<String> parts = post.comments[index].split(': ');
-                    String email = parts.isNotEmpty ? parts[0] : 'Ẩn danh';
-                    String name =
-                        email.contains('@') ? email.split('@')[0] : email;
-                    String content =
-                        parts.length > 1 ? parts.sublist(1).join(': ') : '';
+                );
+              }
+              final comments = snapshot.data!;
+              return ListView.builder(
+                controller: scrollController,
+                itemCount: comments.length,
+                itemBuilder: (context, index) {
+                  String comment = comments[index].toString();
+                  List<String> parts = comment.split(': ');
+                  String email = parts.isNotEmpty ? parts[0] : 'Ẩn danh';
+                  String name =
+                      email.contains('@') ? email.split('@')[0] : email;
+                  String content =
+                      parts.length > 1 ? parts.sublist(1).join(': ') : '';
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 8),
-                      child: PostMessBubble(email: name, message: content),
-                    );
-                  },
-                ),
+                  return Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    child: PostMessBubble(email: name, message: content),
+                  );
+                },
+              );
+            },
+          ),
         ),
         if (isComment)
           buildCommentInput(
+            context: context,
             controller: controller!,
             isCommenting: isCommenting!,
             addComment: addComment!,
@@ -104,44 +117,55 @@ Widget buildLikeSection(
 
 /// Widget nhập bình luận
 Widget buildCommentInput({
+  required BuildContext context,
   required TextEditingController controller,
-  required bool isCommenting,
+  required ValueNotifier<bool>? isCommenting,
   required VoidCallback addComment,
 }) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    decoration: const BoxDecoration(
-      color: Color.fromARGB(255, 37, 39, 40),
-      border: Border(top: BorderSide(color: Colors.grey)),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              labelText: "Viết bình luận...",
-              labelStyle: TextStyle(
-                  color: Color.fromARGB(
-                255,
-                226,
-                229,
-                233,
-              )),
-              border: InputBorder.none,
+  return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 8,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: const BoxDecoration(
+          color: Color.fromARGB(255, 37, 39, 40),
+          border: Border(top: BorderSide(color: Colors.grey)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: "Viết bình luận...",
+                  labelStyle: TextStyle(
+                      color: Color.fromARGB(
+                    255,
+                    226,
+                    229,
+                    233,
+                  )),
+                  border: InputBorder.none,
+                ),
+              ),
             ),
-          ),
+            ValueListenableBuilder<bool>(
+              valueListenable: isCommenting!,
+              builder: (context, isCommentingValue, child) {
+                return IconButton(
+                  icon: isCommentingValue
+                      ? const CircularProgressIndicator()
+                      : const Icon(Icons.send, color: Colors.blue),
+                  onPressed: isCommentingValue ? null : addComment,
+                );
+              },
+            ),
+          ],
         ),
-        IconButton(
-          icon: isCommenting
-              ? const CircularProgressIndicator()
-              : const Icon(Icons.send, color: Colors.blue),
-          onPressed: isCommenting ? null : addComment,
-        ),
-      ],
-    ),
-  );
+      ));
 }
 
 /// Widget hiển thị hình ảnh
@@ -153,7 +177,7 @@ Widget buildImagePreview(BuildContext context, String imageUrl) {
     child: Center(
       child: Image.network(
         imageUrl,
-        fit: BoxFit.contain, 
+        fit: BoxFit.contain,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(child: CircularProgressIndicator());
@@ -171,16 +195,22 @@ void showFullScreenImage(BuildContext context, String imageUrl) {
   showDialog(
     context: context,
     builder: (context) {
+      final size = MediaQuery.of(context).size;
       return Dialog(
         backgroundColor: Colors.transparent,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: InteractiveViewer(
-            panEnabled: true,
-            boundaryMargin: const EdgeInsets.all(20),
-            minScale: 0.5,
-            maxScale: 4.0,
-            child: Image.network(imageUrl),
+        insetPadding: EdgeInsets.zero, // loại bỏ padding mặc định
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(imageUrl, fit: BoxFit.contain),
+            ),
           ),
         ),
       );

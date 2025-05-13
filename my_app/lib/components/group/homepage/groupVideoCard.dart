@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
+import 'package:my_app/model/group/posting.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
-import 'package:my_app/model/group/posting.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
+import 'package:my_app/components/group/homepage/share_post_dialog.dart'; // Import SharePostWidget
 
 class GroupVideoCard extends StatefulWidget {
   final Posting post;
   final GroupPostingService postService;
 
-  const GroupVideoCard(
-      {Key? key, required this.post, required this.postService})
-      : super(key: key);
+  const GroupVideoCard({
+    Key? key,
+    required this.post,
+    required this.postService,
+  }) : super(key: key);
 
   @override
   _GroupVideoCardState createState() => _GroupVideoCardState();
@@ -28,19 +31,22 @@ class _GroupVideoCardState extends State<GroupVideoCard>
   late VideoPlayerController _controller;
   bool _isSeeking = false;
   double _videoPosition = 0;
+  bool isSaved = false;
+  bool isLiked = false;
+  int likeCount = 0;
 
   @override
   bool get wantKeepAlive => true;
 
+  @override
   void initState() {
     super.initState();
     _fetchEmail();
+    _checkSavedStatus();
     _controller = VideoPlayerController.network(widget.post.videoUrl!)
       ..initialize().then((_) {
         setState(() {});
         _controller.play();
-
-        // Lắng nghe thời gian chạy
         _controller.addListener(() {
           if (!_isSeeking && _controller.value.isInitialized) {
             setState(() {
@@ -52,46 +58,106 @@ class _GroupVideoCardState extends State<GroupVideoCard>
       });
   }
 
-  void _seekTo(double value) {
-    final position = Duration(milliseconds: value.toInt());
-    _controller.seekTo(position);
-    _controller.play();
+  Future<void> _fetchEmail() async {
+    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
+    setState(() {
+      email = fetchedEmail;
+      email = email != null && email!.contains('@')
+          ? email!.split('@')[0]
+          : email ?? 'Ẩn danh';
+    });
+  }
+
+  Future<void> _checkSavedStatus() async {
+    try {
+      List<String> savedPosts = await auth.getSavedPosts();
+      setState(() {
+        isSaved = savedPosts.contains(widget.post.postId);
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Lỗi khi kiểm tra trạng thái lưu: $e'),
+        ),
+      );
+    }
   }
 
   void toggleLike() {
     widget.postService.likePost(widget.post.groupId, widget.post.postId);
+    setState(() {
+      isLiked = !isLiked;
+      likeCount += isLiked ? 1 : -1;
+    });
+  }
+
+  void toggleSave() async {
+    try {
+      if (isSaved) {
+        await auth.unsavePost(widget.post.postId);
+      } else {
+        await auth.savePost(widget.post.postId);
+      }
+      setState(() {
+        isSaved = !isSaved;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text('Lỗi khi lưu bài đăng: $e'),
+        ),
+      );
+    }
+  }
+
+  void _sharePost() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SharePostWidget( // Thay SharePostDialog bằng SharePostWidget
+        post: widget.post,
+        postOwnerName: email ?? 'Ẩn danh',
+      ),
+    );
   }
 
   void addComment() async {
     if (_commentController.text.isNotEmpty && !isCommenting.value) {
-      isCommenting.value = true; // Bắt đầu gửi bình luận
+      isCommenting.value = true;
       try {
         await widget.postService.addComment(
           widget.post.groupId,
           widget.post.postId,
           _commentController.text,
         );
-        widget.post.comments.add(_commentController.text);
         _commentController.clear();
       } catch (e) {
-        print("Lỗi khi gửi bình luận: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Lỗi khi gửi bình luận: $e',
+                style: const TextStyle(color: Colors.white)),
+          ),
+        );
       } finally {
         isCommenting.value = false;
       }
     }
   }
 
-  Future<void> _fetchEmail() async {
-    String? fetchedEmail = await auth.getEmailById(widget.post.userId);
-    setState(() {
-      email = fetchedEmail;
-      email = email!.contains('@') ? email!.split('@')[0] : email;
-    });
+  void _seekTo(double value) {
+    final position = Duration(milliseconds: value.toInt());
+    _controller.seekTo(position);
+    _controller.play();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
@@ -111,8 +177,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
         }
         var postData = snapshot.data!;
         List<String> likes = List<String>.from(postData['likes'] ?? []);
-        bool isLiked = likes.contains(FirebaseAuth.instance.currentUser!.uid);
-        int likeCount = likes.length;
+        isLiked = likes.contains(FirebaseAuth.instance.currentUser!.uid);
+        likeCount = likes.length;
 
         final screenSize = MediaQuery.of(context).size;
         final buttonSize = screenSize.width * 0.08;
@@ -121,7 +187,7 @@ class _GroupVideoCardState extends State<GroupVideoCard>
           child: Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             clipBehavior: Clip.none,
-            color: Colors.black87,
+            color: const Color(0xFF2A2A2A),
             child: SizedBox.expand(
               child: Stack(
                 children: [
@@ -133,44 +199,45 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                     ),
                   ),
                   Positioned(
-                    bottom: screenSize.height * 0.2,
-                    right: screenSize.width * 0.01,
+                    right: 8,
+                    bottom: 40,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          onPressed: () => toggleLike(),
+                          onPressed: toggleLike,
                           icon: Icon(
-                            isLiked ? Icons.thumb_up : Icons.favorite_border,
-                            color: isLiked ? Colors.blue : Colors.white,
+                            isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
+                            color: isLiked ? Colors.blueAccent : Colors.grey[500],
+                            size: buttonSize,
                           ),
-                          iconSize: buttonSize,
                         ),
                         Text(
-                          likeCount.toString(),
-                          style: const TextStyle(color: Colors.white),
+                          likeCount > 0 ? '$likeCount' : '0',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
-                        const SizedBox(height: 20),
-                        InkWell(
-                          onTap: () => showModalBottomSheet(
-                            backgroundColor: Color.fromARGB(255, 37, 39, 40),
+                        const SizedBox(height: 12),
+                        IconButton(
+                          onPressed: () => showModalBottomSheet(
+                            backgroundColor: const Color(0xFF2A2A2A),
                             context: context,
                             isScrollControlled: true,
                             shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.zero,
+                              borderRadius:
+                                  BorderRadius.vertical(top: Radius.circular(16)),
                             ),
                             builder: (context) => StatefulBuilder(
                               builder: (context, setModalState) {
                                 return DraggableScrollableSheet(
-                                  initialChildSize: 0.8,
+                                  initialChildSize: 0.7,
                                   minChildSize: 0.4,
-                                  maxChildSize: 0.8,
+                                  maxChildSize: 0.9,
                                   expand: false,
                                   builder: (context, scrollController) {
                                     return buildCommentSection(
                                       widget.post,
                                       context,
-                                      isCommenting: isCommenting.value,
+                                      isCommenting: isCommenting,
                                       controller: _commentController,
                                       isLiked: isLiked,
                                       likeCount: likeCount,
@@ -179,81 +246,98 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                                       scrollController: scrollController,
                                       toggleLike: () {
                                         toggleLike();
-                                        setModalState(() {}); //
+                                        setModalState(() {});
                                       },
+                                      commentStream: widget.postService.getComments(
+                                        widget.post.groupId,
+                                        widget.post.postId),
                                     );
                                   },
                                 );
                               },
                             ),
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.transparent,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.mode_comment_outlined,
-                                  color: Colors.white,
-                                  size: buttonSize,
-                                ),
-                              ],
-                            ),
+                          icon: Icon(
+                            Icons.mode_comment_outlined,
+                            color: Colors.grey[500],
+                            size: buttonSize,
                           ),
+                        ),
+                        Text(
+                          widget.post.comments.isNotEmpty
+                              ? '${widget.post.comments.length}'
+                              : '0',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        ),
+                        const SizedBox(height: 12),
+                        IconButton(
+                          icon: Icon(
+                            Icons.share,
+                            color: Colors.grey[500],
+                            size: buttonSize,
+                          ),
+                          onPressed: _sharePost,
+                        ),
+                        const SizedBox(height: 12),
+                        IconButton(
+                          icon: Icon(
+                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            color: isSaved ? Colors.yellow : Colors.grey[500],
+                            size: buttonSize,
+                          ),
+                          onPressed: toggleSave,
                         ),
                       ],
                     ),
                   ),
                   Positioned(
-                    bottom: 20,
-                    left: 20,
+                    top: 16,
+                    left: 12,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          email ?? '...',
-                          style: TextStyle(
+                          email ?? 'Ẩn danh',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 4),
                         SizedBox(
-                          width: screenSize.width,
+                          width: screenSize.width * 0.7,
                           child: Text(
                             widget.post.content,
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
+                              color: Colors.grey[300],
+                              fontSize: 14,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            maxLines: 2,
                           ),
                         ),
                       ],
                     ),
                   ),
                   Positioned(
-                    bottom: -20,
-                    left: 0,
-                    right: 0,
+                    bottom: 8,
+                    left: 12,
+                    right: 12,
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 3),
+                        thumbShape: RoundSliderThumbShape(
+                          enabledThumbRadius: _isSeeking ? 6 : 0,
+                        ),
+                        trackHeight: 2,
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                       ),
                       child: Slider(
                         min: 0.0,
-                        max: _controller.value.duration.inMilliseconds
-                            .toDouble(),
+                        max: _controller.value.duration.inMilliseconds.toDouble(),
                         value: _isSeeking
                             ? _videoPosition
-                            : _controller.value.position.inMilliseconds
-                                .toDouble(),
+                            : _controller.value.position.inMilliseconds.toDouble(),
                         onChanged: (value) {
                           setState(() {
                             _isSeeking = true;
@@ -266,8 +350,8 @@ class _GroupVideoCardState extends State<GroupVideoCard>
                             _isSeeking = false;
                           });
                         },
-                        activeColor: Colors.white,
-                        inactiveColor: Colors.grey,
+                        activeColor: Colors.blueAccent,
+                        inactiveColor: Colors.grey[700],
                       ),
                     ),
                   ),

@@ -17,29 +17,35 @@ class HomePage extends StatefulWidget {
   final ValueNotifier<List<Map<String, dynamic>>> userGroups;
   final ScrollController scrollController;
   final ValueNotifier<bool> showNavBar;
-  const HomePage(
-      {Key? key,
-      required this.selectedGroupId,
-      required this.postStream,
-      required this.userGroups,
-      required this.scrollController,
-      required this.showNavBar})
-      : super(key: key);
+  final VoidCallback? onGroupChanged;
+
+  const HomePage({
+    Key? key,
+    required this.selectedGroupId,
+    required this.postStream,
+    required this.userGroups,
+    required this.scrollController,
+    required this.showNavBar,
+    this.onGroupChanged,
+  }) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with AutomaticKeepAliveClientMixin {
+class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   final GroupService _groupService = GroupService();
   final GroupPostingService _groupPostingService = GroupPostingService();
   List<File> selectedImages = [];
   List<File> selectedVideos = [];
   List<File> selectedVoices = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearchVisible = false;
 
   @override
   bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -47,34 +53,56 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
-    widget.scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _toggleSearchBar() {
+    setState(() {
+      _isSearchVisible = !_isSearchVisible;
+      if (!_isSearchVisible) {
+        _searchController.clear();
+        _searchQuery = '';
+      }
+    });
   }
 
   void signOut() {
     final authService = Provider.of<Authservice>(context, listen: false);
-
     authService.signOut();
   }
 
-  // Hiển thị popup tạo nhóm
   void _createGroup() {
     TextEditingController groupNameController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tạo Nhóm"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Tạo Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: groupNameController,
-          decoration: const InputDecoration(labelText: "Tên nhóm"),
+          decoration: InputDecoration(
+            labelText: "Tên nhóm",
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            filled: true,
+            fillColor: Colors.grey[800],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               String groupName = groupNameController.text.trim();
               if (groupName.isNotEmpty) {
@@ -82,10 +110,9 @@ class _HomePageState extends State<HomePage>
                   String joinLink = await _groupService.createGroup(groupName);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text("Nhóm đã tạo thành công! Link: $joinLink")),
+                    SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
+                  widget.onGroupChanged?.call();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -100,24 +127,37 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // Hiển thị popup tham gia nhóm
   void _joinGroup() {
     TextEditingController joinLinkController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tham Gia Nhóm"),
+        backgroundColor: Colors.grey[900],
+        title: const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: joinLinkController,
-          decoration: const InputDecoration(labelText: "Nhập mã nhóm"),
+          decoration: InputDecoration(
+            labelText: "Nhập mã nhóm",
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            filled: true,
+            fillColor: Colors.grey[800],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               String joinLink = joinLinkController.text.trim();
               if (joinLink.isNotEmpty) {
@@ -127,6 +167,7 @@ class _HomePageState extends State<HomePage>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Tham gia nhóm thành công!")),
                   );
+                  widget.onGroupChanged?.call();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Lỗi: $e")),
@@ -146,8 +187,7 @@ class _HomePageState extends State<HomePage>
       context,
       MaterialPageRoute(
         builder: (context) => CreatePostScreen(
-          onCreatePost:
-              (String content, List<File> images, List<File> videos) async {
+          onCreatePost: (String content, List<File> images, List<File> videos) async {
             await _groupPostingService.createPost(
               widget.selectedGroupId.value!,
               content,
@@ -171,14 +211,12 @@ class _HomePageState extends State<HomePage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+      backgroundColor: Colors.black87,
       body: Stack(
         children: [
-          // Nội dung chính của posts
           Positioned.fill(
             child: Column(
               children: [
-                // Nội dung chính
                 Expanded(
                   child: widget.userGroups.value.isEmpty
                       ? GroupSelectionWidget(
@@ -188,10 +226,21 @@ class _HomePageState extends State<HomePage>
                       : StreamBuilder<List<DocumentSnapshot>>(
                           stream: widget.postStream,
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+
+                            if (snapshot.hasError) {
                               return const Center(
-                                  child: CircularProgressIndicator());
+                                child: Text(
+                                  "Lỗi tải bài đăng!",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color.fromARGB(255, 226, 229, 233),
+                                  ),
+                                ),
+                              );
                             }
 
                             if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -208,12 +257,23 @@ class _HomePageState extends State<HomePage>
                             }
 
                             final posts = snapshot.data!
-                                .map((doc) => GroupPostCard(
-                                      post: Posting.fromMap(
-                                          doc.data() as Map<String, dynamic>),
-                                      postService: _groupPostingService,
-                                    ))
+                                .map((doc) {
+                                  try {
+                                    return Posting.fromMap(doc.data() as Map<String, dynamic>);
+                                  } catch (e) {
+                                    return null;
+                                  }
+                                })
+                                .where((post) => post != null)
+                                .cast<Posting>()
                                 .toList();
+
+                            final filteredPosts = _searchQuery.isEmpty
+                                ? posts
+                                : posts.where((post) {
+                                    final content = post.content.toLowerCase();
+                                    return content.contains(_searchQuery);
+                                  }).toList();
 
                             return ListView(
                               controller: widget.scrollController,
@@ -223,18 +283,105 @@ class _HomePageState extends State<HomePage>
                                   valueListenable: widget.showNavBar,
                                   builder: (context, showNavBarValue, child) {
                                     return AnimatedPadding(
-                                      duration:
-                                          const Duration(milliseconds: 300),
+                                      duration: const Duration(milliseconds: 200),
                                       padding: EdgeInsets.only(
-                                        top: showNavBarValue ? 40 : 0,
+                                        top: showNavBarValue ? 65 : 0,
                                       ),
-                                      child: InputAreaWidget(
-                                        onTap: _openCreatePostScreen,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: InputAreaWidget(onTap: _openCreatePostScreen),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          GestureDetector(
+                                            onTap: _toggleSearchBar,
+                                            child: Container(
+                                              width: 48,
+                                              height: 48,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey[900],
+                                                borderRadius: BorderRadius.circular(16),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.2),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Icon(
+                                                _isSearchVisible ? Icons.search_off : Icons.search,
+                                                color: Colors.grey[500],
+                                                size: 24,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },
                                 ),
-                                ...posts,
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  height: _isSearchVisible ? 60 : 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: _isSearchVisible
+                                      ? TextField(
+                                          controller: _searchController,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _searchQuery = value.toLowerCase();
+                                            });
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: 'Tìm kiếm bài đăng...',
+                                            hintStyle: TextStyle(color: Colors.grey[500]),
+                                            filled: true,
+                                            fillColor: Colors.grey[900],
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(16),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+                                            suffixIcon: _searchQuery.isNotEmpty
+                                                ? IconButton(
+                                                    icon: Icon(Icons.clear, color: Colors.grey[500]),
+                                                    onPressed: () {
+                                                      _searchController.clear();
+                                                      setState(() {
+                                                        _searchQuery = '';
+                                                      });
+                                                    },
+                                                  )
+                                                : null,
+                                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                          ),
+                                          style: const TextStyle(color: Colors.white),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                                if (filteredPosts.isEmpty && _searchQuery.isNotEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Center(
+                                      child: Text(
+                                        "Không tìm thấy bài đăng!",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color.fromARGB(255, 226, 229, 233),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ...filteredPosts.map((post) => Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                                        child: GroupPostCard(
+                                          post: post,
+                                          postService: _groupPostingService,
+                                        ),
+                                      )),
                               ],
                             );
                           },
@@ -256,8 +403,15 @@ class _HomePageState extends State<HomePage>
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Color.fromARGB(255, 218, 231, 243),
+                      color: Colors.blueAccent,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: const Icon(
                       Icons.add,

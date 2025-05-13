@@ -1,5 +1,3 @@
-// ignore_for_file: file_names
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,32 +8,28 @@ class Authservice extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
 
-  // Đăng nhập và cập nhật vị trí
-  Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
-    try {
-      // Đăng nhập vào Firebase Authentication
-      UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
-        email: email, 
-        password: password
-      );
+  get currentUser => null;
 
-      // Lấy UID của người dùng
+  Future<UserCredential> signInWithEmailAndPassword(
+      String email, String password) async {
+    try {
+      UserCredential userCredential = await _firebaseAuth
+          .signInWithEmailAndPassword(email: email, password: password);
+
       String userId = userCredential.user!.uid;
 
-      // Yêu cầu quyền và lấy vị trí hiện tại
       Position? position = await _determinePosition();
       GeoPoint? location;
-      
+
       if (position != null) {
         location = GeoPoint(position.latitude, position.longitude);
       }
 
-      // Cập nhật Firestore với thông tin người dùng và tọa độ
       _fireStore.collection('users').doc(userId).set({
         'uid': userId,
         'email': email,
-        'location': location != null 
-            ? {'lat': location.latitude, 'lng': location.longitude} 
+        'location': location != null
+            ? {'lat': location.latitude, 'lng': location.longitude}
             : null,
         'isAllowedLocation': location != null,
       }, SetOptions(merge: true));
@@ -48,52 +42,85 @@ class Authservice extends ChangeNotifier {
 
   Future<String?> getEmailById(String userId) async {
     try {
-      DocumentSnapshot userDoc = await _fireStore.collection('users').doc(userId).get();
-      
+      DocumentSnapshot userDoc =
+          await _fireStore.collection('users').doc(userId).get();
+
       if (userDoc.exists) {
-        // Cast the data to a Map<String, dynamic>
         Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
         return data?['email'] as String?;
       } else {
-        return null; // User not found
+        return null;
       }
     } catch (e) {
       throw Exception("Error fetching email: $e");
     }
   }
+  Future<void> savePost(String postId) async {
+    try {
+      String userId = _firebaseAuth.currentUser!.uid;
+      await _fireStore.collection('users').doc(userId).update({
+        'savedPosts': FieldValue.arrayUnion([postId]),
+      });
+    } catch (e) {
+      throw Exception("Failed to save post: $e");
+    }
+  }
 
-  // Lấy vị trí người dùng
+  Future<void> unsavePost(String postId) async {
+    try {
+      String userId = _firebaseAuth.currentUser!.uid;
+      await _fireStore.collection('users').doc(userId).update({
+        'savedPosts': FieldValue.arrayRemove([postId]),
+      });
+    } catch (e) {
+      throw Exception("Failed to unsave post: $e");
+    }
+  }
+
+  Future<List<String>> getSavedPosts() async {
+    try {
+      String userId = _firebaseAuth.currentUser!.uid;
+      DocumentSnapshot userDoc =
+          await _fireStore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        Map<String, dynamic>? data = userDoc.data() as Map<String, dynamic>?;
+        return List<String>.from(data?['savedPosts'] ?? []);
+      }
+      return [];
+    } catch (e) {
+      throw Exception("Failed to fetch saved posts: $e");
+    }
+  }
+
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Kiểm tra xem dịch vụ vị trí có được bật không
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return null; // Dịch vụ vị trí bị tắt
+      return null;
     }
 
-    // Kiểm tra quyền truy cập vị trí
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return null; // Người dùng từ chối quyền truy cập
+        return null;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return null; // Người dùng chặn vĩnh viễn quyền truy cập vị trí
+      return null;
     }
 
-    // Lấy tọa độ hiện tại của người dùng
     return await Geolocator.getCurrentPosition();
   }
 
-  Future<UserCredential> signUpWithEmailAndPassword(String email, String password, bool isAllowedLocation, GeoPoint? location) async {
+  Future<void> signUpWithEmailAndPassword(String email,
+      String password, bool isAllowedLocation, GeoPoint? location) async {
     try {
-      UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(email: email, password: password);
-
+      UserCredential userCredential = await _firebaseAuth
+          .createUserWithEmailAndPassword(email: email, password: password);
       model.User newUser = model.User(
         userId: userCredential.user!.uid,
         userEmail: email,
@@ -101,9 +128,7 @@ class Authservice extends ChangeNotifier {
         location: isAllowedLocation ? location : null,
         isAllowedLocation: isAllowedLocation,
       );
-
       _fireStore.collection('users').doc(newUser.userId).set(newUser.toMap());
-      return userCredential;
     } on FirebaseAuthException catch (e) {
       throw Exception(e.code);
     }
@@ -122,6 +147,65 @@ class Authservice extends ChangeNotifier {
 
   Future<void> signOut() async {
     return await FirebaseAuth.instance.signOut();
+  }
+
+  Future<void> updateUser({
+    required String userId,
+    String? fullName,
+    String? avatarUrl,
+    String? coverPhotoUrl, // New field
+    String? phoneNumber,
+    String? bio,
+  }) async {
+    try {
+      final Map<String, dynamic> updateData = {
+        if (fullName != null) 'fullName': fullName,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
+        if (coverPhotoUrl != null) 'coverPhotoUrl': coverPhotoUrl, // New field
+        if (phoneNumber != null) 'phoneNumber': phoneNumber,
+        if (bio != null) 'bio': bio,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (updateData.isNotEmpty) {
+        await _fireStore.collection('users').doc(userId).update(updateData);
+      }
+    } catch (e) {
+      throw Exception("Failed to update user: $e");
+    }
+  }
+
+  Future<model.User?> getUserById(String userId) async {
+    try {
+      DocumentSnapshot userDoc =
+          await _fireStore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        return model.User.fromMap(userDoc.data() as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      throw Exception("Failed to fetch user: $e");
+    }
+  }
+
+  Stream<QuerySnapshot> getUserPosts(String userId) {
+    return _fireStore
+        .collectionGroup('posts')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getUserPostsInGroup(String userId, String groupId) {
+    return _fireStore
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .limit(20)
+        .snapshots();
   }
 
   // Lấy tất cả user từ Firestore
