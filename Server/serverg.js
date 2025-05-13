@@ -55,5 +55,5 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 // Chạy server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server chạy tại http://192.168.1.200:${PORT}`);
+  console.log(`🚀 Server chạy tại http://192.168.170.200:${PORT}`);
 });

@@ -66,6 +66,9 @@ class _HomePageState extends State<HomePage>
                 : user?.fullName ?? 'Ẩn danh',
             'avatarUrl': user?.avatarUrl,
           };
+        setState(() {
+          
+        });
         } catch (e) {
           _userCache[post.userId] = {
             'name': 'Ẩn danh',
@@ -302,9 +305,9 @@ class _HomePageState extends State<HomePage>
                                 .where((post) => post != null)
                                 .cast<Posting>()
                                 .toList();
-
-                            _fetchUserData(posts);
-
+                            
+                              _fetchUserData(posts);
+                            
                             final filteredPosts = _searchQuery.isEmpty
                                 ? posts
                                 : posts.where((post) {
