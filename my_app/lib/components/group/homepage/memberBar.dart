@@ -235,6 +235,7 @@ class MemberSidebarWidget extends StatelessWidget {
               itemCount: groupMembers.length,
               itemBuilder: (context, index) {
                 final member = groupMembers[index];
+                final name = member['fullName'];
                 final displayName = member["email"]!.contains('@')
                     ? member["email"]!.split('@')[0]
                     : member["email"]!;
@@ -262,7 +263,7 @@ class MemberSidebarWidget extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                displayName,
+                                name ?? displayName,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

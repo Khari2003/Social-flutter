@@ -266,7 +266,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin,Aut
                       });
                     },
                     searchedLocation: searchedLocation,
-                  ),  
+                    onUserTap: (user) async {
+                      final destination = LatLng(user['location']['lat'], user['location']['lng']);
+                      await updateRouteToStore(destination);
+                      setState(() {
+                        isNavigating = true;
+                      });
+                      _startNavigation();
+                    },
+                  ),
+
                   // Nút tìm kiếm địa chỉ
                   Positioned(
                     top: 16.0,

@@ -43,41 +43,20 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
     }
   }
 
-  Widget _buildAvatar() {
-    if (isLoadingAvatar) {
-      return CircleAvatar(
-        radius: 21,
-        backgroundColor: Colors.grey[800],
-        child: const CircularProgressIndicator(
-          color: Colors.blueAccent,
-          strokeWidth: 2,
-        ),
-      );
-    }
+  Widget _buildAvatar(String? avatarUrl) {
     return CircleAvatar(
-      radius: 21,
+      radius: 20,
       backgroundColor: Colors.grey[800],
-      child: avatarUrl != null
-          ? ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: avatarUrl!,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => const CircularProgressIndicator(
-                  color: Colors.blueAccent,
-                  strokeWidth: 2,
-                ),
-                errorWidget: (context, url, error) => const Icon(
-                  Icons.person_outline,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            )
-          : const Icon(
+      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+          ? CachedNetworkImageProvider(avatarUrl)
+          : null,
+      child: avatarUrl == null || avatarUrl.isEmpty
+          ? const Icon(
               Icons.person_outline,
               color: Colors.white,
               size: 24,
-            ),
+            )
+          : null,
     );
   }
 
@@ -99,7 +78,7 @@ class _InputAreaWidgetState extends State<InputAreaWidget> {
           ),
           child: Row(
             children: [
-              _buildAvatar(),
+              _buildAvatar(avatarUrl),
               const SizedBox(width: 10),
               Expanded(
                 child: Container(
