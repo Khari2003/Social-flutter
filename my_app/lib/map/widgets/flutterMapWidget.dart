@@ -19,6 +19,7 @@ class FlutterMapWidget extends StatefulWidget {
   final List<LatLng> routeCoordinates;
   final String routeType;
   final Function(Map<String, dynamic>) onStoreTap;
+  final Function(Map<String, dynamic>) onUserTap; // 👈 callback cho Marker user
   final LatLng? searchedLocation;
 
   const FlutterMapWidget({
@@ -32,6 +33,7 @@ class FlutterMapWidget extends StatefulWidget {
     required this.routeCoordinates,
     required this.routeType,
     required this.onStoreTap,
+    required this.onUserTap, // 👈 thêm constructor param
     this.searchedLocation,
     super.key,
   });
@@ -43,7 +45,7 @@ class FlutterMapWidget extends StatefulWidget {
 class _FlutterMapWidgetState extends State<FlutterMapWidget> {
   late LatLng animatedLocation;
   Timer? movementTimer;
-  List<LatLng> memberLocations = [];
+  List<Map<String, dynamic>> memberUsers = []; // 👈 lưu info user đầy đủ
 
   @override
   void initState() {
@@ -64,16 +66,13 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
   Future<void> _fetchMemberLocations() async {
     try {
       List<Map<String, dynamic>> users = await Authservice().getAllUsers();
-      
       setState(() {
-        memberLocations = users.map((u) {
-          // Kiểm tra kỹ giá trị của location
-          var location = u['location'];
-          if (location is Map<String, dynamic> && u['isAllowedLocation'] == true) {
-            return LatLng(location['lat'] as double, location['lng'] as double);
-          }
-          return null;
-        }).whereType<LatLng>().toList();
+        memberUsers = users.where((u) {
+          final loc = u['location'];
+          return loc is Map<String, dynamic> &&
+              u['isAllowedLocation'] == true &&
+              loc['lat'] != null && loc['lng'] != null;
+        }).toList();
       });
     } catch (e) {
       print("Error fetching user locations: $e");
@@ -106,14 +105,14 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
       stream: FlutterCompass.events,
       builder: (context, snapshot) {
         final heading = snapshot.data?.heading ?? 0;
-        
+
         if (widget.isNavigating) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             widget.mapController.rotate(-heading);
           });
         } else {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            widget.mapController.rotate(0); // Giữ bản đồ thẳng khi không điều hướng
+            widget.mapController.rotate(0);
           });
         }
 
@@ -134,7 +133,6 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                       Polyline(
                         points: widget.routeCoordinates,
                         strokeWidth: 5.0,
-                        // ignore: deprecated_member_use
                         color: Colors.blue.withOpacity(0.75),
                       ),
                     ],
@@ -150,15 +148,31 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                   onStoreTap: widget.onStoreTap,
                   mapRotation: heading,
                 ),
-                for (var loc in memberLocations)
+                for (var user in memberUsers)
                   Marker(
-                    point: loc,
-                    width: 50.0,
-                    height: 50.0,
-                    child: const Icon(
-                      Icons.person_pin_circle,
-                      color: Colors.green,
-                      size: 40.0,
+                    point: LatLng(user['location']['lat'], user['location']['lng']),
+                    width: 100.0,
+                    height: 100.0,
+                    child: GestureDetector(
+                      onTap: () => widget.onUserTap(user), // 👈 callback
+                      child: Column(
+                        children: [
+                          Text(
+                            user['fullName'] ?? 'Vô danh',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          user['avatarUrl'] != null && user['avatarUrl'].toString().isNotEmpty
+                              ? CircleAvatar(
+                                  backgroundImage: NetworkImage(user['avatarUrl']),
+                                  radius: 20,
+                                )
+                              : const Icon(
+                                  Icons.person_pin_circle,
+                                  color: Colors.green,
+                                  size: 40.0,
+                                ),
+                        ],
+                      ),
                     ),
                   ),
                 if (widget.searchedLocation != null)
