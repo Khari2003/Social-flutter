@@ -184,88 +184,118 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _buildAvatar(),
-                const SizedBox(width: 10),
-                Column(
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      displayName ?? 'Ẩn danh',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color.fromARGB(255, 226, 229, 233),
-                        fontSize: 18,
-                      ),
-                    ),
                     Row(
                       children: [
-                        _privacyButton("Chỉ mình tôi"),
-                        const SizedBox(width: 5),
-                        _privacyButton("+ Album"),
-                        const SizedBox(width: 5),
-                        _privacyButton("+ Nhãn AI"),
+                        _buildAvatar(),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name ?? email ?? "User",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromARGB(255, 226, 229, 233),
+                                fontSize: 18,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                _privacyButton("Chỉ mình tôi"),
+                                const SizedBox(width: 5),
+                                _privacyButton("+ Album"),
+                                const SizedBox(width: 5),
+                                _privacyButton("Đang tắt"),
+                                const SizedBox(width: 5),
+                                _privacyButton("+ Nhãn AI"),
+                              ],
+                            ),
+                          ],
+                        ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _postContentController,
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 226, 229, 233),
+                      ),
+                      maxLines: null,
+                      decoration: const InputDecoration(
+                        hintText: "Bạn đang nghĩ gì?",
+                        hintStyle: TextStyle(
+                          color: Colors.grey,
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                    if (_selectedImages.isNotEmpty ||
+                        _selectedVideos.isNotEmpty)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ..._selectedImages
+                              .map((image) => _mediaPreview(image, 'image')),
+                          ..._selectedVideos
+                              .map((video) => _mediaPreview(video, 'video')),
+                        ],
+                      ),
+                    const SizedBox(height: 16),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _postContentController,
-              style: TextStyle(
-                color: Color.fromARGB(255, 226, 229, 233),
-              ),
-              maxLines: null,
-              decoration: const InputDecoration(
-                hintText: "Bạn đang nghĩ gì?",
-                hintStyle: TextStyle(
-                  color: Colors.grey,
-                ),
-                border: InputBorder.none,
               ),
             ),
-            if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ..._selectedImages
-                      .map((image) => _mediaPreview(image, 'image')),
-                  ..._selectedVideos
-                      .map((video) => _mediaPreview(video, 'video')),
-                ],
-              ),
-            const Spacer(),
-            Row(
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            color: Color.fromARGB(255, 37, 39, 40),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _actionButton(
-                    Icons.image,
-                    "Ảnh",
-                    () => _pickMedia(ImageSource.gallery, 'image'),
-                    Colors.greenAccent),
+                  Icons.image,
+                  "Ảnh",
+                  () => _pickMedia(ImageSource.gallery, 'image'),
+                  Colors.greenAccent,
+                ),
                 _actionButton(
-                    Icons.video_collection,
-                    "Video",
-                    () => _pickMedia(ImageSource.gallery, 'video'),
-                    Colors.blueAccent),
-                _actionButton(Icons.emoji_emotions, "Cảm xúc", () {},
-                    Colors.yellowAccent),
+                  Icons.video_collection,
+                  "Video",
+                  () => _pickMedia(ImageSource.gallery, 'video'),
+                  Colors.blueAccent,
+                ),
                 _actionButton(
-                    Icons.location_on, "Vị trí", () {}, Colors.redAccent),
-                _actionButton(Icons.more_horiz, "Khác", () {}, Colors.white),
+                  Icons.emoji_emotions,
+                  "Cảm xúc",
+                  () {},
+                  Colors.yellowAccent,
+                ),
+                _actionButton(
+                  Icons.location_on,
+                  "Vị trí",
+                  () {},
+                  Colors.redAccent,
+                ),
+                _actionButton(
+                  Icons.more_horiz,
+                  "Khác",
+                  () {},
+                  Colors.white,
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

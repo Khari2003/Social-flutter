@@ -6,7 +6,7 @@ import 'package:my_app/components/group/post/groupPostDetail.dart';
 import 'package:my_app/components/group/post/postWidget.dart';
 import 'package:my_app/services/auth/authService.dart';
 import 'package:my_app/services/group/groupPostingService.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:my_app/model/group/posting.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,6 +30,7 @@ class GroupPostCard extends StatefulWidget {
 class _GroupPostCardState extends State<GroupPostCard> {
   final TextEditingController _commentController = TextEditingController();
   final ValueNotifier<bool> isCommenting = ValueNotifier(false);
+  final ValueNotifier<bool> isExpanded = ValueNotifier(false);
   final Authservice auth = Authservice();
   String? displayName;
   String? avatarUrl;
@@ -160,9 +161,9 @@ class _GroupPostCardState extends State<GroupPostCard> {
     } else if (difference.inDays < 6) {
       return "Cách đây ${difference.inDays} ngày";
     } else if (difference.inDays < 365) {
-      return DateFormat("dd 'tháng' MM").format(timestamp);
+      return intl.DateFormat("dd 'tháng' MM").format(timestamp);
     } else {
-      return DateFormat("dd 'tháng' MM yyyy").format(timestamp);
+      return intl.DateFormat("dd 'tháng' MM yyyy").format(timestamp);
     }
   }
 
@@ -300,7 +301,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              displayName ?? 'Ẩn danh',
+                              name ?? email ?? 'Ẩn danh',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -343,12 +344,66 @@ class _GroupPostCardState extends State<GroupPostCard> {
                   ),
                 ),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Text(
-                    widget.post.content,
-                    style: const TextStyle(
-                        fontSize: 15, color: Colors.white, height: 1.4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: isExpanded,
+                    builder: (context, isExpandedValue, child) {
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final textPainter = TextPainter(
+                            text: TextSpan(
+                              text: widget.post.content,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: Colors.white,
+                                height: 1.4,
+                              ),
+                            ),
+                            maxLines: 5,
+                            textDirection: TextDirection.ltr,
+                          )..layout(maxWidth: constraints.maxWidth);
+
+                          final isTextOverflowing = textPainter.didExceedMaxLines;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  if (isExpandedValue && isTextOverflowing) {
+                                    isExpanded.value = false; 
+                                  }
+                                },
+                                child: Text(
+                                  widget.post.content,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.white,
+                                    height: 1.4,
+                                  ),
+                                  maxLines: isExpandedValue ? null : 5,
+                                  overflow: isExpandedValue ? TextOverflow.visible : TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isTextOverflowing && !isExpandedValue)
+                                GestureDetector(
+                                  onTap: () {
+                                    isExpanded.value = true; 
+                                  },
+                                  child: const Text(
+                                    '...xem thêm',
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
                 if (widget.post.imageUrls != null &&
@@ -607,7 +662,7 @@ class _GroupPostCardState extends State<GroupPostCard> {
                             backgroundColor: Colors.transparent,
                             builder: (context) => SharePostWidget(
                               post: widget.post,
-                              postOwnerName: displayName ?? 'Ẩn danh',
+                              postOwnerName: name ?? email ?? 'Ẩn danh',
                             ),
                           );
                         },
