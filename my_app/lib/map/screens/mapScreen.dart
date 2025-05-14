@@ -114,7 +114,25 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin, Au
       // Kiểm tra khoảng cách di chuyển để tránh cập nhật không cần thiết
       if (previousLocation != null) {
         final distance = Distance().as(LengthUnit.Meter, previousLocation!, newLocation);
-        if (distance < 3) return; // Bỏ qua nếu di chuyển dưới 3 mét
+
+        if (distance < 3) return; 
+
+        // Di chuyển mượt nếu vượt quá 1m
+        if (distance > 1) {
+          final steps = 10;
+          final latStep = (newLocation.latitude - previousLocation!.latitude) / steps;
+          final lngStep = (newLocation.longitude - previousLocation!.longitude) / steps;
+
+          for (int i = 0; i < steps; i++) {
+            await Future.delayed(const Duration(milliseconds: 50));
+            setState(() {
+              currentLocation = LatLng(
+                previousLocation!.latitude + latStep * i,
+                previousLocation!.longitude + lngStep * i,
+              );
+            });
+          }
+        }
       }
 
       _animateMapToLocation(newLocation);
@@ -133,11 +151,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin, Au
       }
 
       if (isNavigating) {
-        _mapController.move(newLocation, 20.0);
+        _mapController.move(newLocation, 20.0); // Zoom 20.0 khi điều hướng
         _checkIfOnRoute(newLocation);
         _checkIfArrived(newLocation);
       } else {
-        _mapController.move(newLocation, 14.0);
+        _mapController.move(newLocation, 14.0); // Zoom 14.0 khi không điều hướng
       }
 
       previousLocation = newLocation;
@@ -145,9 +163,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin, Au
   }
 
   void _animateMapToLocation(LatLng newLocation) {
-    if (_animationController == null || currentLocation == null || _animationController!.isAnimating) {
-      return;
-    }
+    if (_animationController == null || currentLocation == null) return;
 
     final latTween = Tween<double>(begin: currentLocation!.latitude, end: newLocation.latitude);
     final lngTween = Tween<double>(begin: currentLocation!.longitude, end: newLocation.longitude);
@@ -160,12 +176,33 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin, Au
     animation.addListener(() {
       _mapController.move(
         LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
-        isNavigating ? 20.0 : 14.0,
+        isNavigating ? 20.0 : 14.0, // Zoom dựa trên isNavigating
       );
     });
 
     _animationController!.forward(from: 0.0).then((_) {
       _animationController!.reset();
+    });
+  }
+
+  void _resetToInitialState() {
+    setState(() {
+      isNavigating = false; // Tắt chế độ điều hướng
+      routeCoordinates.clear(); // Xóa lộ trình
+      userHeading = null; // Xóa hướng người dùng
+      selectedStore = null; // Bỏ chọn cửa hàng
+      navigatingStore = null; // Xóa cửa hàng đang điều hướng
+      searchedLocation = null; // Xóa vị trí tìm kiếm
+      radius = 1000.0; // Reset bán kính
+      updateFilteredStores(); // Cập nhật lại danh sách cửa hàng
+    });
+
+    // Đặt lại góc quay và zoom của bản đồ
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (currentLocation != null) {
+        _mapController.move(currentLocation!, 14.0); // Di chuyển bản đồ về vị trí hiện tại với zoom mặc định
+        _mapController.rotate(0); // Đặt lại góc quay về 0
+      }
     });
   }
 
@@ -195,25 +232,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin, Au
     }
   }
 
-  void _resetToInitialState() {
-    setState(() {
-      isNavigating = false;
-      routeCoordinates.clear();
-      userHeading = null;
-      selectedStore = null;
-      navigatingStore = null;
-      searchedLocation = null;
-      radius = 1000.0;
-      updateFilteredStores();
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (currentLocation != null) {
-        _mapController.move(currentLocation!, 14.0);
-        _mapController.rotate(0);
-      }
-    });
-  }
 
   void _checkIfArrived(LatLng userLocation) {
     if (routeCoordinates.isNotEmpty) {

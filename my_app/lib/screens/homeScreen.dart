@@ -33,15 +33,18 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
+class _HomePageState extends State<HomePage>
+    with AutomaticKeepAliveClientMixin {
   final GroupService _groupService = GroupService();
   final GroupPostingService _groupPostingService = GroupPostingService();
   List<File> selectedImages = [];
   List<File> selectedVideos = [];
   List<File> selectedVoices = [];
+  final Authservice _authService = Authservice();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchVisible = false;
+  final Map<String, Map<String, dynamic>> _userCache = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -49,6 +52,32 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
   @override
   void initState() {
     super.initState();
+  }
+
+  Future<void> _fetchUserData(List<Posting> posts) async {
+    for (var post in posts) {
+      if (!_userCache.containsKey(post.userId)) {
+        try {
+          final user = await _authService.getUserById(post.userId);
+          _userCache[post.userId] = {
+            'name': user?.fullName,
+            'email': user?.userEmail != null && user!.userEmail.contains('@')
+                ? user.userEmail.split('@')[0]
+                : user?.fullName ?? 'Ẩn danh',
+            'avatarUrl': user?.avatarUrl,
+          };
+        setState(() {
+          
+        });
+        } catch (e) {
+          _userCache[post.userId] = {
+            'name': 'Ẩn danh',
+            'email': 'Ẩn danh',
+            'avatarUrl': null,
+          };
+        }
+      }
+    }
   }
 
   @override
@@ -101,7 +130,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
               String groupName = groupNameController.text.trim();
@@ -110,7 +140,9 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                   String joinLink = await _groupService.createGroup(groupName);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Nhóm đã tạo thành công! Link: $joinLink")),
+                    SnackBar(
+                        content:
+                            Text("Nhóm đã tạo thành công! Link: $joinLink")),
                   );
                   widget.onGroupChanged?.call();
                 } catch (e) {
@@ -133,7 +165,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Tham Gia Nhóm", style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: joinLinkController,
           decoration: InputDecoration(
@@ -156,7 +189,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () async {
               String joinLink = joinLinkController.text.trim();
@@ -187,7 +221,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
       context,
       MaterialPageRoute(
         builder: (context) => CreatePostScreen(
-          onCreatePost: (String content, List<File> images, List<File> videos) async {
+          onCreatePost:
+              (String content, List<File> images, List<File> videos) async {
             await _groupPostingService.createPost(
               widget.selectedGroupId.value!,
               content,
@@ -226,8 +261,10 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                       : StreamBuilder<List<DocumentSnapshot>>(
                           stream: widget.postStream,
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(child: CircularProgressIndicator());
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                  child: CircularProgressIndicator());
                             }
 
                             if (snapshot.hasError) {
@@ -259,7 +296,8 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                             final posts = snapshot.data!
                                 .map((doc) {
                                   try {
-                                    return Posting.fromMap(doc.data() as Map<String, dynamic>);
+                                    return Posting.fromMap(
+                                        doc.data() as Map<String, dynamic>);
                                   } catch (e) {
                                     return null;
                                   }
@@ -267,14 +305,15 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                 .where((post) => post != null)
                                 .cast<Posting>()
                                 .toList();
-
+                            
+                              _fetchUserData(posts);
+                            
                             final filteredPosts = _searchQuery.isEmpty
                                 ? posts
                                 : posts.where((post) {
                                     final content = post.content.toLowerCase();
                                     return content.contains(_searchQuery);
                                   }).toList();
-
                             return ListView(
                               controller: widget.scrollController,
                               cacheExtent: 10000,
@@ -283,14 +322,16 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                   valueListenable: widget.showNavBar,
                                   builder: (context, showNavBarValue, child) {
                                     return AnimatedPadding(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration:
+                                          const Duration(milliseconds: 200),
                                       padding: EdgeInsets.only(
                                         top: showNavBarValue ? 65 : 0,
                                       ),
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: InputAreaWidget(onTap: _openCreatePostScreen),
+                                            child: InputAreaWidget(
+                                                onTap: _openCreatePostScreen),
                                           ),
                                           const SizedBox(width: 8),
                                           GestureDetector(
@@ -300,17 +341,21 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                               height: 48,
                                               decoration: BoxDecoration(
                                                 color: Colors.grey[900],
-                                                borderRadius: BorderRadius.circular(16),
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: Colors.black.withOpacity(0.2),
+                                                    color: Colors.black
+                                                        .withOpacity(0.2),
                                                     blurRadius: 4,
                                                     offset: const Offset(0, 2),
                                                   ),
                                                 ],
                                               ),
                                               child: Icon(
-                                                _isSearchVisible ? Icons.search_off : Icons.search,
+                                                _isSearchVisible
+                                                    ? Icons.search_off
+                                                    : Icons.search,
                                                 color: Colors.grey[500],
                                                 size: 24,
                                               ),
@@ -324,28 +369,35 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                 AnimatedContainer(
                                   duration: const Duration(milliseconds: 300),
                                   height: _isSearchVisible ? 60 : 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
                                   child: _isSearchVisible
                                       ? TextField(
                                           controller: _searchController,
                                           onChanged: (value) {
                                             setState(() {
-                                              _searchQuery = value.toLowerCase();
+                                              _searchQuery =
+                                                  value.toLowerCase();
                                             });
                                           },
                                           decoration: InputDecoration(
                                             hintText: 'Tìm kiếm bài đăng...',
-                                            hintStyle: TextStyle(color: Colors.grey[500]),
+                                            hintStyle: TextStyle(
+                                                color: Colors.grey[500]),
                                             filled: true,
                                             fillColor: Colors.grey[900],
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(16),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                               borderSide: BorderSide.none,
                                             ),
-                                            prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+                                            prefixIcon: Icon(Icons.search,
+                                                color: Colors.grey[500]),
                                             suffixIcon: _searchQuery.isNotEmpty
                                                 ? IconButton(
-                                                    icon: Icon(Icons.clear, color: Colors.grey[500]),
+                                                    icon: Icon(Icons.clear,
+                                                        color:
+                                                            Colors.grey[500]),
                                                     onPressed: () {
                                                       _searchController.clear();
                                                       setState(() {
@@ -354,13 +406,17 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                                     },
                                                   )
                                                 : null,
-                                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    vertical: 12),
                                           ),
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(
+                                              color: Colors.white),
                                         )
                                       : const SizedBox.shrink(),
                                 ),
-                                if (filteredPosts.isEmpty && _searchQuery.isNotEmpty)
+                                if (filteredPosts.isEmpty &&
+                                    _searchQuery.isNotEmpty)
                                   const Padding(
                                     padding: EdgeInsets.all(16),
                                     child: Center(
@@ -369,18 +425,21 @@ class _HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin 
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
-                                          color: Color.fromARGB(255, 226, 229, 233),
+                                          color: Color.fromARGB(
+                                              255, 226, 229, 233),
                                         ),
                                       ),
                                     ),
                                   )
                                 else
                                   ...filteredPosts.map((post) => Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 0, vertical: 0),
                                         child: GroupPostCard(
                                           key: ValueKey(post.postId),
                                           post: post,
                                           postService: _groupPostingService,
+                                          userData: _userCache[post.userId],
                                         ),
                                       )),
                               ],
