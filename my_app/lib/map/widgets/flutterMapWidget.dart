@@ -1,4 +1,3 @@
-// ignore_for_file: file_names, library_private_types_in_public_api
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +6,7 @@ import 'package:my_app/services/auth/authService.dart';
 import 'dart:async';
 import '../utils/buildMarkers.dart';
 import '../utils/dashPolyline.dart';
+import 'package:provider/provider.dart';
 
 class FlutterMapWidget extends StatefulWidget {
   final MapController mapController;
@@ -19,7 +19,7 @@ class FlutterMapWidget extends StatefulWidget {
   final List<LatLng> routeCoordinates;
   final String routeType;
   final Function(Map<String, dynamic>) onStoreTap;
-  final Function(Map<String, dynamic>) onUserTap; // 👈 callback cho Marker user
+  final Function(Map<String, dynamic>) onUserTap;
   final LatLng? searchedLocation;
 
   const FlutterMapWidget({
@@ -33,7 +33,7 @@ class FlutterMapWidget extends StatefulWidget {
     required this.routeCoordinates,
     required this.routeType,
     required this.onStoreTap,
-    required this.onUserTap, // 👈 thêm constructor param
+    required this.onUserTap,
     this.searchedLocation,
     super.key,
   });
@@ -43,60 +43,52 @@ class FlutterMapWidget extends StatefulWidget {
 }
 
 class _FlutterMapWidgetState extends State<FlutterMapWidget> {
-  late LatLng animatedLocation;
-  Timer? movementTimer;
-  List<Map<String, dynamic>> memberUsers = []; // 👈 lưu info user đầy đủ
+  List<Map<String, dynamic>> memberUsers = [];
+  double _smoothedHeading = 0;
+  final List<double> _headingBuffer = [];
+  final int _bufferSize = 5;
+  String? _currentUserAvatarUrl;
 
   @override
   void initState() {
     super.initState();
-    animatedLocation = widget.currentLocation;
-    _startSmoothMovement();
     _fetchMemberLocations();
+    _fetchCurrentUserAvatar();
   }
 
-  @override
-  void didUpdateWidget(covariant FlutterMapWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentLocation != widget.currentLocation) {
-      _startSmoothMovement();
+  Future<void> _fetchCurrentUserAvatar() async {
+    try {
+      final authService = Provider.of<Authservice>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid;
+      if (currentUserId != null) {
+        final user = await authService.getUserById(currentUserId);
+        setState(() {
+          _currentUserAvatarUrl = user?.avatarUrl;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching current user avatar: $e");
     }
   }
 
   Future<void> _fetchMemberLocations() async {
     try {
-      List<Map<String, dynamic>> users = await Authservice().getAllUsers();
+      final authService = Provider.of<Authservice>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid;
+      List<Map<String, dynamic>> users = await authService.getAllUsers();
       setState(() {
         memberUsers = users.where((u) {
           final loc = u['location'];
           return loc is Map<String, dynamic> &&
               u['isAllowedLocation'] == true &&
-              loc['lat'] != null && loc['lng'] != null;
+              loc['lat'] != null &&
+              loc['lng'] != null &&
+              u['uid'] != currentUserId; // Lọc bỏ người dùng hiện tại
         }).toList();
       });
     } catch (e) {
-      print("Error fetching user locations: $e");
+      debugPrint("Error fetching user locations: $e");
     }
-  }
-
-  void _startSmoothMovement() {
-    movementTimer?.cancel();
-    const duration = Duration(milliseconds: 100);
-    movementTimer = Timer.periodic(duration, (timer) {
-      setState(() {
-        animatedLocation = LatLng(
-          (animatedLocation.latitude + widget.currentLocation.latitude) / 2,
-          (animatedLocation.longitude + widget.currentLocation.longitude) / 2,
-        );
-      });
-      if ((animatedLocation.latitude - widget.currentLocation.latitude).abs() < 0.0001 &&
-          (animatedLocation.longitude - widget.currentLocation.longitude).abs() < 0.0001) {
-        timer.cancel();
-        setState(() {
-          animatedLocation = widget.currentLocation;
-        });
-      }
-    });
   }
 
   @override
@@ -104,11 +96,17 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
     return StreamBuilder<CompassEvent>(
       stream: FlutterCompass.events,
       builder: (context, snapshot) {
-        final heading = snapshot.data?.heading ?? 0;
+        if (snapshot.hasData) {
+          _headingBuffer.add(snapshot.data!.heading ?? 0);
+          if (_headingBuffer.length > _bufferSize) {
+            _headingBuffer.removeAt(0);
+          }
+          _smoothedHeading = _headingBuffer.reduce((a, b) => a + b) / _headingBuffer.length;
+        }
 
         if (widget.isNavigating) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            widget.mapController.rotate(-heading);
+            widget.mapController.rotate(-_smoothedHeading);
           });
         } else {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -119,7 +117,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
         return FlutterMap(
           mapController: widget.mapController,
           options: MapOptions(
-            initialCenter: animatedLocation,
+            initialCenter: widget.currentLocation,
             initialZoom: 14.0,
           ),
           children: [
@@ -140,13 +138,14 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
             MarkerLayer(
               markers: [
                 ...buildMarkers(
-                  currentLocation: animatedLocation,
+                  currentLocation: widget.currentLocation,
                   isNavigating: widget.isNavigating,
                   userHeading: widget.userHeading,
                   navigatingStore: widget.navigatingStore,
                   filteredStores: widget.filteredStores,
                   onStoreTap: widget.onStoreTap,
-                  mapRotation: heading,
+                  mapRotation: _smoothedHeading,
+                  avatarUrl: _currentUserAvatarUrl, // Truyền avatarUrl
                 ),
                 for (var user in memberUsers)
                   Marker(
@@ -154,7 +153,7 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
                     width: 100.0,
                     height: 100.0,
                     child: GestureDetector(
-                      onTap: () => widget.onUserTap(user), // 👈 callback
+                      onTap: () => widget.onUserTap(user),
                       child: Column(
                         children: [
                           Text(
@@ -196,7 +195,6 @@ class _FlutterMapWidgetState extends State<FlutterMapWidget> {
 
   @override
   void dispose() {
-    movementTimer?.cancel();
     super.dispose();
   }
 }

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../components/textField.dart';
 import '../../components/button.dart';
+import '../../map/services/locationService.dart';
+import 'package:latlong2/latlong.dart';
 
 class RegisterScreen extends StatefulWidget {
   final void Function()? onTap;
@@ -19,6 +21,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final confirmPasswordController = TextEditingController();
   bool isAllowedLocation = false;
   GeoPoint? userLocation;
+
+  Future<void> _fetchUserLocation() async {
+    try {
+      LatLng? location = await LocationService.fetchCurrentLocation();
+      if (location != null) {
+        setState(() {
+          userLocation = GeoPoint(location.latitude, location.longitude);
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: const Text(
+              'Không thể lấy vị trí, sử dụng vị trí mặc định',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+        setState(() {
+          userLocation = GeoPoint(21.0278, 105.8342); // Fallback
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text(
+            'Không thể lấy vị trí: $e',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      setState(() {
+        userLocation = GeoPoint(21.0278, 105.8342); // Fallback
+      });
+    }
+  }
 
   void signUp() async {
     if (passwordController.text != confirmPasswordController.text) {
@@ -66,7 +105,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 48),
-                // Title
                 const Text(
                   'Tạo Tài Khoản',
                   style: TextStyle(
@@ -84,28 +122,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 48),
-                // Email
                 MyTextField(
                   controller: emailController,
                   hintText: 'Email',
                   obscureText: false,
                 ),
                 const SizedBox(height: 16),
-                // Password
                 MyTextField(
                   controller: passwordController,
                   hintText: 'Mật khẩu',
                   obscureText: true,
                 ),
                 const SizedBox(height: 16),
-                // Confirm Password
                 MyTextField(
                   controller: confirmPasswordController,
                   hintText: 'Xác nhận mật khẩu',
                   obscureText: true,
                 ),
                 const SizedBox(height: 16),
-                // Location Checkbox
                 Row(
                   children: [
                     Checkbox(
@@ -113,15 +147,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       activeColor: Colors.blueAccent,
                       checkColor: Colors.white,
                       side: BorderSide(color: Colors.grey[600]!),
-                      onChanged: (bool? value) {
+                      onChanged: (bool? value) async {
                         setState(() {
                           isAllowedLocation = value ?? false;
-                          if (isAllowedLocation) {
-                            userLocation = GeoPoint(21.0278, 105.8342); // Giả lập vị trí
-                          } else {
-                            userLocation = null;
-                          }
                         });
+                        if (isAllowedLocation) {
+                          await _fetchUserLocation();
+                        } else {
+                          setState(() {
+                            userLocation = null;
+                          });
+                        }
                       },
                     ),
                     Text(
@@ -131,10 +167,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Sign up button
                 CustomButton(onTap: signUp, text: 'Đăng ký'),
                 const SizedBox(height: 48),
-                // Login link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
